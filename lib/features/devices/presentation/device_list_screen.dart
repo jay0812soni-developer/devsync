@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_theme.dart';
@@ -238,33 +239,103 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.wifi_rounded, size: 14, color: DevSyncColors.secondary),
-                          const SizedBox(width: 6),
-                          Text(
-                            'LAN: ${myState.localIp ?? "Detecting..."}:${myState.lanPort}',
-                            style: const TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                      if (kIsWeb) ...[
+                        const Row(
+                          children: [
+                            Icon(Icons.cloud_done_rounded, size: 14, color: DevSyncColors.primary),
+                            SizedBox(width: 6),
+                            Text(
+                              'Cloud Relay Mode',
+                              style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: DevSyncColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: DevSyncColors.secondary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(12),
+                          child: const Text(
+                            'Web Instance',
+                            style: TextStyle(fontSize: 10, color: DevSyncColors.primary, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                        child: const Text(
-                          'HTTP Server Active',
-                          style: TextStyle(fontSize: 10, color: DevSyncColors.secondary, fontWeight: FontWeight.w600),
+                      ] else ...[
+                        Row(
+                          children: [
+                            const Icon(Icons.wifi_rounded, size: 14, color: DevSyncColors.secondary),
+                            const SizedBox(width: 6),
+                            Text(
+                              'LAN: ${myState.localIp ?? "Detecting..."}:${myState.lanPort}',
+                              style: const TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                            ),
+                          ],
                         ),
-                      ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: DevSyncColors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'HTTP Server Active',
+                            style: TextStyle(fontSize: 10, color: DevSyncColors.secondary, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],
               ),
             ),
           ),
+
+          // Backend Relay Configuration Helper Banner
+          if (DatabaseService.instance.getRelayUrl().contains('devsync-relay.vercel.app'))
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: DevSyncColors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: DevSyncColors.warning.withValues(alpha: 0.4)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.link_rounded, size: 22, color: DevSyncColors.warning),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Connect Backend Relay',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: DevSyncColors.warning),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'Click Configure to set your deployed devsync-backend Vercel URL.',
+                          style: TextStyle(fontSize: 11, color: DevSyncColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _showSettingsDialog(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: DevSyncColors.warning,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Configure', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
 
           const SizedBox(height: 20),
 
