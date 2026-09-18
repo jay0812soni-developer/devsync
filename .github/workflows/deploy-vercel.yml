@@ -1,4 +1,4 @@
-name: Deploy DevSync Web to Vercel
+name: Build & Test DevSync Web
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +28,10 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release --no-wasm-dry-run
 
-      - name: Deploy to Vercel
+      - name: Deploy to Vercel (Optional CI Deployment)
+        if: ${{ env.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
