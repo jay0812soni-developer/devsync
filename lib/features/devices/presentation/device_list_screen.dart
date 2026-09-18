@@ -89,7 +89,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
             TextField(
               controller: relayController,
               decoration: const InputDecoration(
-                hintText: 'https://devsync-relay.vercel.app',
+                hintText: 'https://devsync-backend.vercel.app',
               ),
             ),
             const SizedBox(height: 12),
@@ -292,7 +292,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
           ),
 
           // Backend Relay Configuration Helper Banner
-          if (DatabaseService.instance.getRelayUrl().contains('devsync-relay.vercel.app'))
+          if (DatabaseService.instance.getRelayUrl().isEmpty)
             Container(
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),

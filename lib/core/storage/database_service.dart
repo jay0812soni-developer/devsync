@@ -109,7 +109,11 @@ class DatabaseService {
   // --- Settings ---
 
   String getRelayUrl() {
-    return _settingsBox.get('relay_url', defaultValue: AppConstants.defaultRelayUrl) as String;
+    final saved = _settingsBox.get('relay_url', defaultValue: AppConstants.defaultRelayUrl) as String;
+    if (saved.isEmpty || saved == 'https://devsync-relay.vercel.app') {
+      return AppConstants.defaultRelayUrl;
+    }
+    return saved;
   }
 
   Future<void> setRelayUrl(String url) async {

@@ -17,7 +17,7 @@ class AppConstants {
   static const String archivesFolder = 'Archives';
 
   // Default Backend Relay (Can be overridden in app settings)
-  static const String defaultRelayUrl = 'https://devsync-relay.vercel.app';
+  static const String defaultRelayUrl = 'https://devsync-backend.vercel.app';
 
   // Hive Box Names
   static const String boxSettings = 'devsync_settings';
