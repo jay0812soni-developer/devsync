@@ -1,0 +1,10 @@
+{
+  "name": "devsync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "P2P Multi-Device Developer Communication & File Transfer System",
+  "scripts": {
+    "build": "bash scripts/vercel-build.sh",
+    "vercel-build": "bash scripts/vercel-build.sh"
+  }
+}
