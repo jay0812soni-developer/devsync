@@ -127,4 +127,38 @@ class DatabaseService {
   Future<void> setAutoDownloadLan(bool enabled) async {
     await _settingsBox.put('auto_download_lan', enabled);
   }
+
+  // --- Auth & Multi-Device Connection Code ---
+
+  String? getConnectionCode() {
+    return _settingsBox.get('connection_code') as String?;
+  }
+
+  Future<void> setConnectionCode(String code) async {
+    await _settingsBox.put('connection_code', code);
+  }
+
+  String? getUserEmail() {
+    return _settingsBox.get('user_email') as String?;
+  }
+
+  Future<void> setUserEmail(String email) async {
+    await _settingsBox.put('user_email', email);
+  }
+
+  String? getUserPhone() {
+    return _settingsBox.get('user_phone') as String?;
+  }
+
+  Future<void> setUserPhone(String phone) async {
+    await _settingsBox.put('user_phone', phone);
+  }
+
+  bool isAuthenticated() {
+    return _settingsBox.get('is_authenticated', defaultValue: false) as bool;
+  }
+
+  Future<void> setAuthenticated(bool auth) async {
+    await _settingsBox.put('is_authenticated', auth);
+  }
 }

@@ -17,6 +17,7 @@ class DevSyncColors {
   static const Color accent = Color(0xFFD2A8FF);
   static const Color warning = Color(0xFFF0883E);
   static const Color error = Color(0xFFF85149);
+  static const Color success = Color(0xFF3FB950);
 
   // Message Bubbles
   static const Color bubbleSent = Color(0xFF1A3B5C);

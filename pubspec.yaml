@@ -52,6 +52,7 @@ dependencies:
   intl: ^0.20.3
   hive_flutter: ^1.1.0
   crypto: ^3.0.7
+  pinput: ^6.0.2
 
 dev_dependencies:
   flutter_test:

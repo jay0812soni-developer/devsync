@@ -139,4 +139,167 @@ class RelayApiService {
     }
     return null;
   }
+
+  // --- Auth & Connection Code Pairing APIs ---
+
+  /// Requests a 6-digit OTP sent via Nodemailer to the user's email
+  Future<Map<String, dynamic>> sendRegistrationOtp({
+    required String email,
+    required String phone,
+    String? name,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/api/auth/register-otp');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'phone': phone.trim(),
+          'name': name,
+        }),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {'success': true, 'message': data['message'], 'debugOtp': data['debugOtp']};
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Failed to send OTP'};
+      }
+    } catch (e) {
+      debugPrint('sendRegistrationOtp error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Verifies the 6-digit OTP, registers the user, and links this device
+  Future<Map<String, dynamic>> verifyOtp({
+    required String email,
+    required String otp,
+    required DeviceIdentity identity,
+    String? lanIp,
+    int? lanPort,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/api/auth/verify-otp');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'otp': otp.trim(),
+          'device': {
+            'deviceId': identity.deviceId,
+            'deviceName': identity.deviceName,
+            'platform': identity.platform,
+            'signingPublicKey': identity.signingPublicKeyBase64,
+            'exchangePublicKey': identity.exchangePublicKeyBase64,
+            'lanIp': lanIp,
+            'lanPort': lanPort,
+          },
+        }),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'connectionCode': data['connectionCode'],
+          'user': data['user'],
+        };
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Verification failed'};
+      }
+    } catch (e) {
+      debugPrint('verifyOtp error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Pairs this device with an existing user/primary device using the 6-digit Connection Code
+  Future<Map<String, dynamic>> pairWithConnectionCode({
+    required String connectionCode,
+    required DeviceIdentity identity,
+    String? lanIp,
+    int? lanPort,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/api/auth/pair-device');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'connectionCode': connectionCode.trim(),
+          'device': {
+            'deviceId': identity.deviceId,
+            'deviceName': identity.deviceName,
+            'platform': identity.platform,
+            'signingPublicKey': identity.signingPublicKeyBase64,
+            'exchangePublicKey': identity.exchangePublicKeyBase64,
+            'lanIp': lanIp,
+            'lanPort': lanPort,
+          },
+        }),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) {
+        DeviceModel? pairedModel;
+        if (data['pairedDevice'] != null) {
+          final pd = data['pairedDevice'] as Map<String, dynamic>;
+          pairedModel = DeviceModel(
+            id: pd['deviceId'] as String,
+            name: pd['deviceName'] as String? ?? 'Primary Device',
+            platform: pd['platform'] as String? ?? 'unknown',
+            signingPublicKey: pd['signingPublicKey'] as String? ?? '',
+            exchangePublicKey: pd['exchangePublicKey'] as String? ?? '',
+            lanIp: pd['lanIp'] as String?,
+            lanPort: pd['lanPort'] as int?,
+            isOnline: true,
+            isLanAvailable: false,
+            lastSeen: DateTime.now(),
+          );
+        }
+
+        return {
+          'success': true,
+          'message': data['message'],
+          'connectionCode': data['connectionCode'],
+          'user': data['user'],
+          'pairedDevice': pairedModel,
+        };
+      } else {
+        return {'success': false, 'error': data['error'] ?? 'Pairing failed'};
+      }
+    } catch (e) {
+      debugPrint('pairWithConnectionCode error: $e');
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  /// Rotates the 6-digit connection code for this user
+  Future<String?> regenerateConnectionCode({
+    required String email,
+    required String deviceId,
+  }) async {
+    try {
+      final url = Uri.parse('$_baseUrl/api/auth/regenerate-code');
+      final response = await _client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email.trim(),
+          'deviceId': deviceId,
+        }),
+      );
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200 && data['success'] == true) {
+        return data['connectionCode'] as String?;
+      }
+    } catch (e) {
+      debugPrint('regenerateConnectionCode error: $e');
+    }
+    return null;
+  }
 }

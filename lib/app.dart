@@ -4,6 +4,7 @@ import 'core/constants/app_theme.dart';
 import 'features/chat/presentation/chat_screen.dart';
 import 'features/devices/presentation/device_list_screen.dart';
 import 'features/devices/presentation/device_providers.dart';
+import 'features/splash/presentation/netflix_splash_screen.dart';
 
 class DevSyncApp extends ConsumerWidget {
   const DevSyncApp({super.key});
@@ -14,7 +15,7 @@ class DevSyncApp extends ConsumerWidget {
       title: 'DevSync',
       debugShowCheckedModeBanner: false,
       theme: DevSyncTheme.darkTheme,
-      home: const DevSyncHomeScaffold(),
+      home: const NetflixSplashScreen(),
     );
   }
 }
