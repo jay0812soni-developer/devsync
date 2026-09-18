@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
@@ -43,6 +44,7 @@ class LanHttpServer {
   /// Starts the embedded shelf server
   Future<int> start(DeviceIdentity identity, {int preferredPort = AppConstants.defaultLanPort}) async {
     _identity = identity;
+    if (kIsWeb) return 0;
     if (_server != null) return _port;
 
     final app = Router();

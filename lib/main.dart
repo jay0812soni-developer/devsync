@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
@@ -10,8 +11,10 @@ void main() async {
   // Initialize persistent Hive storage
   await DatabaseService.instance.initialize();
 
-  // Initialize DevSync organized directory hierarchy (Code, Images, Documents, Media, Archives)
-  await LocalFileManager.instance.initialize();
+  // Initialize DevSync organized directory hierarchy on native platforms
+  if (!kIsWeb) {
+    await LocalFileManager.instance.initialize();
+  }
 
   runApp(
     const ProviderScope(

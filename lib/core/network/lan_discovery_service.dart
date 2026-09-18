@@ -31,6 +31,8 @@ class LanDiscoveryService {
     _identity = identity;
     _lanServerPort = lanServerPort;
 
+    if (kIsWeb) return;
+
     await _resolveLocalIp();
 
     try {
@@ -141,6 +143,7 @@ class LanDiscoveryService {
 
   /// Inspects network interfaces to find the active Wi-Fi / Ethernet IPv4 address
   Future<String?> _resolveLocalIp() async {
+    if (kIsWeb) return null;
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,

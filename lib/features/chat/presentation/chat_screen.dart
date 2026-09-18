@@ -1,4 +1,5 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -78,9 +79,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       type: FileType.any,
     );
 
-    if (result.isNotEmpty && result.first.path != null) {
-      final path = result.first.path!;
-      await ref.read(chatProvider.notifier).sendFile(path);
+    if (result.isNotEmpty) {
+      final file = result.first;
+      if (!kIsWeb && file.path != null) {
+        await ref.read(chatProvider.notifier).sendFile(file.path!);
+      } else {
+        final bytes = await file.xFile.readAsBytes();
+        await ref.read(chatProvider.notifier).sendFileBytes(
+              fileName: file.name,
+              bytes: bytes,
+            );
+      }
       _scrollToBottom();
     }
   }

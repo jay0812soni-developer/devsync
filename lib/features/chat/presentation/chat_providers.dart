@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart' as dart_crypto;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -223,6 +224,41 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       fileName: fileName,
       fileSize: fileSize,
       sha256: sha256,
+      fileMetadata: fileMeta,
+    );
+  }
+
+  /// Shares a file using raw bytes (used on Web where filesystem paths are not accessible)
+  Future<void> sendFileBytes({
+    required String fileName,
+    required List<int> bytes,
+  }) async {
+    final currentPeer = _ref.read(selectedPeerProvider);
+    final myState = _ref.read(myDeviceProvider);
+    if (currentPeer == null || myState.identity == null) return;
+
+    final fileSize = bytes.length;
+    final sha256Digest = dart_crypto.sha256.convert(bytes).toString();
+    final category = FileCategorizer.categorize(fileName);
+
+    final fileMeta = FileAttachmentMetadata(
+      fileName: fileName,
+      fileSize: fileSize,
+      fileCategory: category.folderName,
+      sha256: sha256Digest,
+      isDownloaded: true,
+    );
+
+    final base64Content = base64Encode(bytes);
+
+    await _dispatchMessage(
+      content: base64Content,
+      type: MessageType.file,
+      peer: currentPeer,
+      myIdentity: myState.identity!,
+      fileName: fileName,
+      fileSize: fileSize,
+      sha256: sha256Digest,
       fileMetadata: fileMeta,
     );
   }

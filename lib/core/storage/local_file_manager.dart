@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:crypto/crypto.dart' as dart_crypto;
+import 'package:flutter/foundation.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -16,6 +17,7 @@ class LocalFileManager {
 
   /// Initializes base DevSync storage directories
   Future<void> initialize() async {
+    if (kIsWeb) return;
     final baseDir = await _getBaseDirectory();
     _baseStorageDir = Directory(p.join(baseDir.path, AppConstants.rootFolder));
 
@@ -34,6 +36,7 @@ class LocalFileManager {
 
   /// Gets the user's primary downloads / documents directory based on platform
   Future<Directory> _getBaseDirectory() async {
+    if (kIsWeb) return Directory('');
     if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
       final downloads = await getDownloadsDirectory();
       if (downloads != null) return downloads;
@@ -130,12 +133,15 @@ class LocalFileManager {
 
   /// Opens the file using the native default app (VS Code, viewer, Photos, etc.)
   Future<OpenResult> openFile(String filePath) async {
+    if (kIsWeb) {
+      return OpenResult(type: ResultType.done);
+    }
     return await OpenFilex.open(filePath);
   }
 
   /// Returns total storage usage in DevSync
   Future<int> getTotalDevSyncStorageBytes() async {
-    if (_baseStorageDir == null) await initialize();
+    if (kIsWeb || _baseStorageDir == null) return 0;
     int total = 0;
     if (await _baseStorageDir!.exists()) {
       await for (final entity in _baseStorageDir!.list(recursive: true, followLinks: false)) {

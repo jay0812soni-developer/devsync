@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/crypto/device_identity.dart';
 import '../../../core/network/lan_discovery_service.dart';
@@ -47,22 +48,31 @@ class MyDeviceNotifier extends StateNotifier<MyDeviceState> {
 
   Future<void> init() async {
     final identity = await _identityManager.getOrCreateIdentity();
-    final lanServer = LanHttpServer.instance;
-    final port = await lanServer.start(identity);
+    
+    int port = 0;
+    String? localIp;
 
-    final discovery = LanDiscoveryService.instance;
-    await discovery.start(identity: identity, lanServerPort: port);
+    if (!kIsWeb) {
+      final lanServer = LanHttpServer.instance;
+      port = await lanServer.start(identity);
+
+      final discovery = LanDiscoveryService.instance;
+      await discovery.start(identity: identity, lanServerPort: port);
+      localIp = discovery.localIp;
+    } else {
+      localIp = 'Web Client';
+    }
 
     state = state.copyWith(
       identity: identity,
-      localIp: discovery.localIp,
+      localIp: localIp,
       lanPort: port,
     );
 
     // Register with Vercel relay
     await RelayApiService.instance.registerDevice(
       identity,
-      lanIp: discovery.localIp,
+      lanIp: localIp,
       lanPort: port,
     );
 
