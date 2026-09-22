@@ -9,6 +9,7 @@ import '../../devices/domain/device_model.dart';
 import '../../devices/presentation/device_providers.dart';
 import 'hurray_connection_dialog.dart';
 import 'otp_verification_screen.dart';
+import '../../devices/presentation/qr_scanner_sheet.dart';
 
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
@@ -162,6 +163,44 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
       setState(() {
         _loginError = result['error'] ?? 'Invalid code or connection failed.';
       });
+    }
+  }
+
+  // --- Scan QR Code for Direct Pairing ---
+  Future<void> _handleScanQr() async {
+    setState(() => _loginError = null);
+
+    final result = await QrScannerSheet.show(context);
+    if (result == null || !mounted) return;
+
+    if (!result.hasValidData) {
+      setState(() {
+        _loginError = 'No valid DevSync pairing code or device info found in QR.';
+      });
+      return;
+    }
+
+    // Save and pair peer locally if peer identity was in QR
+    if (result.peer != null) {
+      ref.read(peersProvider.notifier).addOrUpdatePeer(result.peer!);
+      ref.read(peersProvider.notifier).pairDevice(result.peer!.id);
+      await DatabaseService.instance.savePeer(result.peer!);
+    }
+
+    // If 6-digit Connection Code is present, perform cloud relay pairing
+    if (result.code != null && result.code!.length == 6) {
+      _codeController.text = result.code!;
+      await _handlePairWithCode(result.code!);
+    } else if (result.peer != null) {
+      // Direct LAN / P2P pairing completed
+      await DatabaseService.instance.setAuthenticated(true);
+      if (mounted) {
+        await HurrayConnectionDialog.show(
+          context,
+          pairedDevice: result.peer,
+          connectionCode: result.code ?? 'P2P-DIRECT',
+        );
+      }
     }
   }
 
@@ -417,7 +456,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Enter the 6-digit Connection Code displayed in the "Connections" section on your other device.',
+                  'Scan the pairing QR code from your registered device to pair instantly, or enter the 6-digit Connection Code.',
                   style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary, height: 1.4),
                 ),
               ),
@@ -425,14 +464,52 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
 
-        const Text(
-          'Enter 6-Digit Connection Code',
-          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white),
+        // Primary "Scan QR Code to Pair" Action Button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _isPairing ? null : _handleScanQr,
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
+            label: const Text(
+              'Scan QR Code to Pair',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: DevSyncColors.primary,
+              foregroundColor: Colors.black,
+              elevation: 4,
+              shadowColor: DevSyncColors.primary.withValues(alpha: 0.3),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
         ),
 
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
+
+        // "OR ENTER 6-DIGIT CODE" Divider
+        Row(
+          children: [
+            Expanded(child: Divider(color: const Color(0xFF30363D).withValues(alpha: 0.8))),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                'OR ENTER 6-DIGIT CODE',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: DevSyncColors.textMuted,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+            ),
+            Expanded(child: Divider(color: const Color(0xFF30363D).withValues(alpha: 0.8))),
+          ],
+        ),
+
+        const SizedBox(height: 16),
 
         // Pinput 6-digit input for pairing
         Pinput(
@@ -452,25 +529,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           Text(_loginError!, style: const TextStyle(color: DevSyncColors.error, fontSize: 12)),
         ],
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
 
         SizedBox(
           width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
+          height: 46,
+          child: OutlinedButton.icon(
             onPressed: _isPairing ? null : () => _handlePairWithCode(_codeController.text),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DevSyncColors.primary,
-              foregroundColor: Colors.black,
+            icon: _isPairing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(color: DevSyncColors.primary, strokeWidth: 2),
+                  )
+                : const Icon(Icons.link_rounded, size: 18),
+            label: const Text('Pair Device with Code', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: DevSyncColors.primary,
+              side: const BorderSide(color: DevSyncColors.primary),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            child: _isPairing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
-                  )
-                : const Text('Pair Device & Sync', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
         ),
 

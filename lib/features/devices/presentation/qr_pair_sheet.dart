@@ -4,8 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_theme.dart';
-import '../domain/device_model.dart';
+import '../../../core/storage/database_service.dart';
 import 'device_providers.dart';
+import 'qr_scanner_sheet.dart';
 
 class QrPairSheet extends ConsumerStatefulWidget {
   const QrPairSheet({super.key});
@@ -35,8 +36,12 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
   Widget build(BuildContext context) {
     final myState = ref.watch(myDeviceProvider);
     final identity = myState.identity;
+    final connectionCode = DatabaseService.instance.getConnectionCode();
 
     final pairingPayload = jsonEncode({
+      'type': 'devsync_pair',
+      'code': connectionCode ?? '',
+      'connectionCode': connectionCode ?? '',
       'id': identity?.deviceId ?? '',
       'name': identity?.deviceName ?? '',
       'platform': identity?.platform ?? '',
@@ -47,7 +52,7 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
     });
 
     return Container(
-      height: 520,
+      height: 540,
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
         color: DevSyncColors.surface,
@@ -83,62 +88,131 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
               controller: _tabController,
               children: [
                 // Tab 1: Show My QR Code
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
+                SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: QrImageView(
+                          data: pairingPayload,
+                          version: QrVersions.auto,
+                          size: 190,
+                          backgroundColor: Colors.white,
+                        ),
                       ),
-                      child: QrImageView(
-                        data: pairingPayload,
-                        version: QrVersions.auto,
-                        size: 200,
-                        backgroundColor: Colors.white,
+                      const SizedBox(height: 12),
+                      if (connectionCode != null && connectionCode.isNotEmpty) ...[
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Connection Code: ',
+                              style: TextStyle(fontSize: 13, color: DevSyncColors.textSecondary),
+                            ),
+                            Text(
+                              connectionCode,
+                              style: const TextStyle(
+                                fontFamily: 'monospace',
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                                letterSpacing: 2,
+                                color: DevSyncColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                      ],
+                      Text(
+                        identity?.deviceName ?? identity?.deviceId ?? '',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      identity?.deviceId ?? '',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: DevSyncColors.primary,
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: pairingPayload));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Pairing payload copied to clipboard')),
+                          );
+                        },
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Copy Pairing Token'),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: pairingPayload));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Pairing payload copied to clipboard')),
-                        );
-                      },
-                      icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('Copy Pairing Token'),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
 
-                // Tab 2: Manual Pairing / Paste Payload
+                // Tab 2: Manual Pairing / Scan QR / Paste Payload
                 SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const Text(
-                        'Pair with another developer device without scanning. Paste the device pairing token or enter details below:',
-                        style: TextStyle(color: DevSyncColors.textSecondary, fontSize: 13),
+                      // Direct Scan QR Button
+                      SizedBox(
+                        height: 46,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final result = await QrScannerSheet.show(context);
+                            if (result != null && context.mounted) {
+                              if (result.peer != null) {
+                                ref.read(peersProvider.notifier).addOrUpdatePeer(result.peer!);
+                                ref.read(peersProvider.notifier).pairDevice(result.peer!.id);
+                                await DatabaseService.instance.savePeer(result.peer!);
+                              }
+                              if (!context.mounted) return;
+                              Navigator.of(context).pop();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    result.peer != null
+                                        ? 'Successfully paired with ${result.peer!.name}!'
+                                        : 'Pairing code ${result.code} detected!',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                          label: const Text('Scan Peer QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: DevSyncColors.primary,
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 12),
+
+                      const SizedBox(height: 16),
+                      const Row(
+                        children: [
+                          Expanded(child: Divider(color: DevSyncColors.border)),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'OR PASTE TOKEN / CODE',
+                              style: TextStyle(fontSize: 11, color: DevSyncColors.textMuted, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: DevSyncColors.border)),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
                       TextField(
                         controller: _pasteController,
-                        maxLines: 4,
+                        maxLines: 3,
                         style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                         decoration: InputDecoration(
-                          hintText: 'Paste pairing JSON from another device...',
+                          hintText: 'Paste pairing JSON token or 6-digit code...',
                           suffixIcon: IconButton(
                             icon: const Icon(Icons.paste, size: 18),
                             onPressed: () async {
@@ -152,33 +226,26 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
                       ),
                       const SizedBox(height: 14),
                       ElevatedButton.icon(
-                        onPressed: () {
-                          try {
-                            final raw = jsonDecode(_pasteController.text) as Map<String, dynamic>;
-                            final peer = DeviceModel(
-                              id: raw['id'] as String,
-                              name: raw['name'] as String? ?? 'Paired Device',
-                              platform: raw['platform'] as String? ?? 'unknown',
-                              signingPublicKey: raw['signingPublicKey'] as String? ?? '',
-                              exchangePublicKey: raw['exchangePublicKey'] as String? ?? '',
-                              lanIp: raw['lanIp'] as String?,
-                              lanPort: raw['lanPort'] as int?,
-                              isOnline: true,
-                              isLanAvailable: raw['lanIp'] != null,
-                              lastSeen: DateTime.now(),
-                              isPaired: true,
-                            );
-
-                            ref.read(peersProvider.notifier).addOrUpdatePeer(peer);
-                            ref.read(peersProvider.notifier).pairDevice(peer.id);
+                        onPressed: () async {
+                          final parsed = PairingScanResult.parse(_pasteController.text);
+                          if (parsed.peer != null) {
+                            ref.read(peersProvider.notifier).addOrUpdatePeer(parsed.peer!);
+                            ref.read(peersProvider.notifier).pairDevice(parsed.peer!.id);
+                            await DatabaseService.instance.savePeer(parsed.peer!);
+                            if (!context.mounted) return;
                             Navigator.of(context).pop();
-
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Successfully paired with ${peer.name}!')),
+                              SnackBar(content: Text('Successfully paired with ${parsed.peer!.name}!')),
                             );
-                          } catch (e) {
+                          } else if (parsed.code != null) {
+                            if (!context.mounted) return;
+                            Navigator.of(context).pop();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('Invalid pairing token: $e')),
+                              SnackBar(content: Text('Detected code: ${parsed.code}. Use in Login tab to pair.')),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Invalid pairing token or code.')),
                             );
                           }
                         },
