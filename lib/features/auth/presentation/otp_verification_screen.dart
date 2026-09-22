@@ -12,13 +12,11 @@ import 'hurray_connection_dialog.dart';
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String email;
   final String phone;
-  final String? debugOtp;
 
   const OtpVerificationScreen({
     super.key,
     required this.email,
     required this.phone,
-    this.debugOtp,
   });
 
   @override
@@ -32,7 +30,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   bool _isVerifying = false;
   bool _isResending = false;
   String? _errorMessage;
-  String? _activeDebugOtp;
 
   // Cooldown timer
   int _resendCooldown = 60;
@@ -41,13 +38,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   @override
   void initState() {
     super.initState();
-    _activeDebugOtp = widget.debugOtp;
     _startCooldownTimer();
-
-    // Auto-fill OTP if present
-    if (_activeDebugOtp != null && _activeDebugOtp!.length == 6) {
-      _pinController.text = _activeDebugOtp!;
-    }
   }
 
   void _startCooldownTimer() {
@@ -147,12 +138,6 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
     if (result['success'] == true) {
       _startCooldownTimer();
-      if (result['debugOtp'] != null) {
-        setState(() {
-          _activeDebugOtp = result['debugOtp'] as String;
-          _pinController.text = _activeDebugOtp!;
-        });
-      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('A new 6-digit verification code has been sent! Please check your Inbox and Spam folder.'),
@@ -280,7 +265,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
                   const SizedBox(height: 14),
 
-                  // Spam reminder & fallback helper banner
+                  // Spam / Junk folder reminder banner
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
@@ -288,61 +273,18 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: const Color(0xFF30363D)),
                     ),
-                    child: Column(
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.info_outline_rounded, size: 15, color: DevSyncColors.secondary),
-                            SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                "Can't find the email? Please check your Spam or Junk folder.",
-                                style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (_activeDebugOtp != null && _activeDebugOtp!.isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          InkWell(
-                            onTap: () {
-                              _pinController.text = _activeDebugOtp!;
-                              _verifyOtp(_activeDebugOtp!);
-                            },
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: DevSyncColors.primary.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.5)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Text(
-                                    'Quick Fill OTP: ',
-                                    style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
-                                  ),
-                                  Text(
-                                    _activeDebugOtp!,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w800,
-                                      color: DevSyncColors.primary,
-                                      letterSpacing: 2,
-                                      fontFamily: 'monospace',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  const Icon(Icons.touch_app_rounded, size: 14, color: DevSyncColors.primary),
-                                ],
-                              ),
-                            ),
+                        Icon(Icons.info_outline_rounded, size: 15, color: DevSyncColors.secondary),
+                        SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            "Can't find the email? Please check your Spam or Junk folder.",
+                            style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                            textAlign: TextAlign.center,
                           ),
-                        ],
+                        ),
                       ],
                     ),
                   ),

@@ -162,7 +162,7 @@ class RelayApiService {
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 && data['success'] == true) {
-        return {'success': true, 'message': data['message'], 'debugOtp': data['debugOtp']};
+        return {'success': true, 'message': data['message']};
       } else {
         return {'success': false, 'error': data['error'] ?? 'Failed to send OTP'};
       }

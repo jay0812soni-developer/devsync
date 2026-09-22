@@ -95,7 +95,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           builder: (_) => OtpVerificationScreen(
             email: email,
             phone: fullPhone,
-            debugOtp: result['debugOtp'] as String?,
           ),
         ),
       );
@@ -198,7 +197,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           builder: (_) => OtpVerificationScreen(
             email: email,
             phone: '',
-            debugOtp: result['debugOtp'] as String?,
           ),
         ),
       );
