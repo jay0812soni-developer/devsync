@@ -196,7 +196,7 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
                           label: const Text('Scan Peer QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: DevSyncColors.primary,
-                            foregroundColor: Colors.black,
+                            foregroundColor: DevSyncColors.onPrimary,
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
@@ -264,7 +264,7 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
                         label: const Text('Pair Device'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: DevSyncColors.secondary,
-                          foregroundColor: Colors.black,
+                          foregroundColor: DevSyncColors.onPrimary,
                         ),
                       ),
                     ],

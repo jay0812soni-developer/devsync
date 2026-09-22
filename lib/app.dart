@@ -72,16 +72,16 @@ class DevSyncHomeScaffold extends ConsumerWidget {
                           ),
                           const SizedBox(height: 20),
                           const Text(
-                            'DevSync Multi-Device Peer System',
+                            'Pick a device',
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
                               color: DevSyncColors.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 8),
                           const Text(
-                            'Select a device to start exchanging code, files, or messages.\nDirect high-speed transfer on LAN with zero-retention cloud fallback.',
+                            'Messages, code, and files stay between the devices you paired.',
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 13, color: DevSyncColors.textMuted, height: 1.4),
                           ),

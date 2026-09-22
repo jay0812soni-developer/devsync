@@ -385,7 +385,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                     onPressed: () => _showSettingsDialog(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: DevSyncColors.warning,
-                      foregroundColor: Colors.black,
+                      foregroundColor: DevSyncColors.onPrimary,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -586,19 +586,9 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10141E),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: DevSyncColors.primary.withValues(alpha: 0.4),
-          width: 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: DevSyncColors.primary.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: DevSyncColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: DevSyncColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -624,16 +614,15 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'CONNECTIONS & DEVICE PAIRING',
+                      'Pairing code',
                       style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: DevSyncColors.textPrimary,
                       ),
                     ),
                     Text(
-                      'Worldwide Cross-Device Mesh',
+                      'Same code on every device',
                       style: TextStyle(fontSize: 11, color: DevSyncColors.textSecondary),
                     ),
                   ],
@@ -669,14 +658,14 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
               decoration: BoxDecoration(
-                color: const Color(0xFF161B26),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF30363D)),
+                color: DevSyncColors.background,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: DevSyncColors.border),
               ),
               child: Column(
                 children: [
                   const Text(
-                    'YOUR 6-DIGIT CONNECTION CODE',
+                    'Code',
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -688,17 +677,11 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                   SelectableText(
                     formattedCode,
                     style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 4,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 3,
                       fontFamily: 'monospace',
-                      color: DevSyncColors.primary,
-                      shadows: [
-                        Shadow(
-                          color: Color(0x6600F5D4),
-                          blurRadius: 10,
-                        ),
-                      ],
+                      color: DevSyncColors.textPrimary,
                     ),
                   ),
                   if (userEmail != null && userEmail.isNotEmpty) ...[
@@ -785,7 +768,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                 label: const Text('Register & Get Connection Code', style: TextStyle(fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DevSyncColors.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: DevSyncColors.onPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
@@ -811,7 +794,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary, foregroundColor: Colors.black),
+            style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary, foregroundColor: DevSyncColors.onPrimary),
             child: const Text('Regenerate'),
           ),
         ],

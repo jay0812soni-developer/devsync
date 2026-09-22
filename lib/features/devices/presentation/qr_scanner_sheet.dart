@@ -219,7 +219,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
       ),
       margin: EdgeInsets.only(bottom: bottomInset),
       decoration: const BoxDecoration(
-        color: Color(0xFF0D1117),
+        color: DevSyncColors.background,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         border: Border(
           top: BorderSide(color: DevSyncColors.primary, width: 2),
@@ -236,7 +236,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
               width: 38,
               height: 4,
               decoration: BoxDecoration(
-                color: const Color(0xFF30363D),
+                color: DevSyncColors.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -300,7 +300,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
               ),
             ),
 
-            const Divider(color: Color(0xFF21262D), height: 1),
+            const Divider(color: DevSyncColors.surfaceVariant, height: 1),
 
             // Content Body: Scanner Viewport or Manual Input
             Flexible(
@@ -316,7 +316,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
                         decoration: BoxDecoration(
                           color: Colors.black,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: const Color(0xFF30363D)),
+                          border: Border.all(color: DevSyncColors.border),
                         ),
                         clipBehavior: Clip.antiAlias,
                         child: Stack(
@@ -382,9 +382,9 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF161B22),
+                          color: DevSyncColors.surface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF30363D)),
+                          border: Border.all(color: DevSyncColors.border),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -423,7 +423,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
                               label: const Text('Confirm & Pair', style: TextStyle(fontWeight: FontWeight.bold)),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: DevSyncColors.primary,
-                                foregroundColor: Colors.black,
+                                foregroundColor: DevSyncColors.onPrimary,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                             ),
@@ -445,7 +445,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
                             label: const Text('Upload QR Image', style: TextStyle(fontSize: 12)),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: DevSyncColors.textSecondary,
-                              side: const BorderSide(color: Color(0xFF30363D)),
+                              side: const BorderSide(color: DevSyncColors.border),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
@@ -469,7 +469,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
                             ),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: DevSyncColors.secondary,
-                              side: const BorderSide(color: Color(0xFF30363D)),
+                              side: const BorderSide(color: DevSyncColors.border),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
@@ -489,7 +489,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
 
   Widget _buildCameraErrorView() {
     return Container(
-      color: const Color(0xFF0D1117),
+      color: DevSyncColors.background,
       padding: const EdgeInsets.all(20),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -513,7 +513,7 @@ class _QrScannerSheetState extends ConsumerState<QrScannerSheet> with SingleTick
             label: const Text('Enter Code / Paste Token', style: TextStyle(fontSize: 12)),
             style: ElevatedButton.styleFrom(
               backgroundColor: DevSyncColors.primary,
-              foregroundColor: Colors.black,
+              foregroundColor: DevSyncColors.onPrimary,
             ),
           ),
         ],

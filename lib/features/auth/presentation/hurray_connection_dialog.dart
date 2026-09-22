@@ -38,62 +38,52 @@ class HurrayConnectionDialog extends StatelessWidget {
     final devPlatform = pairedDevice?.platform ?? 'Remote';
 
     return Dialog(
-      backgroundColor: const Color(0xFF0D1117),
+      backgroundColor: DevSyncColors.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: DevSyncColors.primary, width: 1.5),
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: DevSyncColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Celebratory Animated Glow Badge
             Container(
-              width: 76,
-              height: 76,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const RadialGradient(
-                  colors: [Color(0xFF00F5D4), Color(0xFF7B2CBF)],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00F5D4).withValues(alpha: 0.4),
-                    blurRadius: 30,
-                    spreadRadius: 8,
-                  ),
-                ],
+                color: DevSyncColors.surfaceVariant,
+                border: Border.all(color: DevSyncColors.border),
               ),
               child: const Center(
                 child: Icon(
-                  Icons.check_circle_rounded,
-                  color: Colors.white,
-                  size: 46,
+                  Icons.check_rounded,
+                  color: DevSyncColors.primary,
+                  size: 28,
                 ),
               ),
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             const Text(
-              '🎉 Hurray! Complete!',
+              'Connected',
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: -0.5,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: DevSyncColors.textPrimary,
+                letterSpacing: -0.3,
               ),
             ),
 
             const SizedBox(height: 6),
 
             const Text(
-              'Connection Established Successfully',
+              'This device is on the account.',
               style: TextStyle(
                 fontSize: 14,
-                color: DevSyncColors.primary,
-                fontWeight: FontWeight.w600,
+                color: DevSyncColors.textSecondary,
               ),
             ),
 
@@ -103,16 +93,16 @@ class HurrayConnectionDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: const Color(0xFF161B22),
+                color: DevSyncColors.surface,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF30363D)),
+                border: Border.all(color: DevSyncColors.border),
               ),
               child: Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF21262D),
+                      color: DevSyncColors.surfaceVariant,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
@@ -174,7 +164,7 @@ class HurrayConnectionDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF101622),
+                color: DevSyncColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -213,14 +203,14 @@ class HurrayConnectionDialog extends StatelessWidget {
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: DevSyncColors.primary,
-                  foregroundColor: Colors.black,
+                  foregroundColor: DevSyncColors.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                   elevation: 0,
                 ),
                 child: const Text(
-                  'Start Syncing Worldwide',
+                  'Open devices',
                   style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
               ),

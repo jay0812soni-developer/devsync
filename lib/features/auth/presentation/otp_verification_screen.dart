@@ -164,28 +164,21 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
         fontFamily: 'monospace',
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF30363D), width: 1.5),
+        color: DevSyncColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: DevSyncColors.border),
       ),
     );
 
     final focusedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration!.copyWith(
-        border: Border.all(color: DevSyncColors.primary, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: DevSyncColors.primary.withValues(alpha: 0.25),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
+        border: Border.all(color: DevSyncColors.primary, width: 1.5),
       ),
     );
 
     final submittedPinTheme = defaultPinTheme.copyWith(
       decoration: defaultPinTheme.decoration!.copyWith(
-        color: const Color(0xFF0D1117),
+        color: DevSyncColors.background,
         border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.6), width: 1.5),
       ),
     );
@@ -197,7 +190,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF080B10),
+      backgroundColor: DevSyncColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -220,9 +213,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     width: 72,
                     height: 72,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF161B22),
+                      color: DevSyncColors.surface,
                       shape: BoxShape.circle,
-                      border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.5), width: 2),
+                      border: Border.all(color: DevSyncColors.border),
                     ),
                     child: const Center(
                       child: Icon(
@@ -269,9 +262,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF161B22),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFF30363D)),
+                      color: DevSyncColors.surface,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: DevSyncColors.border),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -341,7 +334,8 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                       onPressed: _isVerifying ? null : () => _verifyOtp(_pinController.text),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: DevSyncColors.primary,
-                        foregroundColor: Colors.black,
+                        foregroundColor: DevSyncColors.onPrimary,
+                        elevation: 0,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -350,7 +344,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+                              child: CircularProgressIndicator(strokeWidth: 2.5, color: DevSyncColors.onPrimary),
                             )
                           : const Text(
                               'Verify & Continue',

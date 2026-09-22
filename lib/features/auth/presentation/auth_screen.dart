@@ -249,7 +249,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF080B10),
+      backgroundColor: DevSyncColors.background,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -259,68 +259,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // App Emblem & Brand Header
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D1117),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.8), width: 1.5),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '<',
-                              style: TextStyle(
-                                color: DevSyncColors.primary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                            Text(
-                              '/>',
-                              style: TextStyle(
-                                color: DevSyncColors.secondary,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Text(
-                        'DEV',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const Text(
-                        'SYNC',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2,
-                          color: DevSyncColors.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
                   const Text(
-                    'Worldwide Multi-Device Peer Network',
-                    style: TextStyle(fontSize: 13, color: DevSyncColors.textSecondary),
+                    'DevSync',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.5,
+                      color: DevSyncColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Register once. Sign in on the other devices with the code.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: DevSyncColors.textSecondary, height: 1.4),
                   ),
 
                   const SizedBox(height: 28),
@@ -328,9 +280,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                   // Segmented Tabs: [ Login ] / [ Register ]
                   Container(
                     decoration: BoxDecoration(
-                      color: const Color(0xFF161B22),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFF30363D)),
+                      color: DevSyncColors.surface,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: DevSyncColors.border),
                     ),
                     padding: const EdgeInsets.all(4),
                     child: TabBar(
@@ -340,7 +292,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                         borderRadius: BorderRadius.circular(8),
                       ),
                       indicatorSize: TabBarIndicatorSize.tab,
-                      labelColor: Colors.black,
+                      labelColor: DevSyncColors.onPrimary,
                       unselectedLabelColor: Colors.white,
                       labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                       tabs: const [
@@ -384,9 +336,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
         fontFamily: 'monospace',
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFF161B22),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFF30363D), width: 1.5),
+        color: DevSyncColors.surface,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: DevSyncColors.border),
       ),
     );
 
@@ -422,9 +374,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
             height: 48,
             child: ElevatedButton(
               onPressed: _isPairing ? null : _handleEmailLogin,
-              style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary, foregroundColor: Colors.black),
+              style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary, foregroundColor: DevSyncColors.onPrimary),
               child: _isPairing
-                  ? const CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5)
+                  ? const CircularProgressIndicator(color: DevSyncColors.onPrimary, strokeWidth: 2.5)
                   : const Text('Send Login OTP', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
           ),
@@ -446,9 +398,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF161B22),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.3)),
+            color: DevSyncColors.surface,
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: DevSyncColors.border),
           ),
           child: const Row(
             children: [
@@ -479,10 +431,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: DevSyncColors.primary,
-              foregroundColor: Colors.black,
-              elevation: 4,
-              shadowColor: DevSyncColors.primary.withValues(alpha: 0.3),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              foregroundColor: DevSyncColors.onPrimary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
           ),
         ),
@@ -492,7 +443,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
         // "OR ENTER 6-DIGIT CODE" Divider
         Row(
           children: [
-            Expanded(child: Divider(color: const Color(0xFF30363D).withValues(alpha: 0.8))),
+            Expanded(child: Divider(color: DevSyncColors.border)),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 10),
               child: Text(
@@ -505,7 +456,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                 ),
               ),
             ),
-            Expanded(child: Divider(color: const Color(0xFF30363D).withValues(alpha: 0.8))),
+            Expanded(child: Divider(color: DevSyncColors.border)),
           ],
         ),
 
@@ -611,14 +562,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF161B22),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF30363D)),
+                  color: DevSyncColors.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: DevSyncColors.border),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: _selectedCountryCode,
-                    dropdownColor: const Color(0xFF161B22),
+                    dropdownColor: DevSyncColors.surface,
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                     items: _countryCodes.map((c) {
                       final codeOnly = c.split(' ')[0];
@@ -673,14 +624,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
               onPressed: _isSendingOtp ? null : _handleRegister,
               style: ElevatedButton.styleFrom(
                 backgroundColor: DevSyncColors.primary,
-                foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                foregroundColor: DevSyncColors.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
               child: _isSendingOtp
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.black, strokeWidth: 2.5),
+                      child: CircularProgressIndicator(color: DevSyncColors.onPrimary, strokeWidth: 2.5),
                     )
                   : const Text('Send 6-Digit OTP Email', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             ),
@@ -690,7 +642,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
 
           const Center(
             child: Text(
-              'A dark-mode styled verification code will be sent to your inbox.',
+              'A 6-digit code will be sent to that inbox.',
               style: TextStyle(fontSize: 11, color: DevSyncColors.textMuted),
               textAlign: TextAlign.center,
             ),
