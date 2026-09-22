@@ -47,7 +47,13 @@ class MyDeviceNotifier extends StateNotifier<MyDeviceState> {
   }
 
   Future<void> init() async {
-    final identity = await _identityManager.getOrCreateIdentity();
+    DeviceIdentity identity;
+    try {
+      identity = await _identityManager.getOrCreateIdentity();
+    } catch (e) {
+      debugPrint('Device identity failed: $e');
+      return;
+    }
     
     int port = 0;
     String? localIp;
@@ -92,18 +98,26 @@ class MyDeviceNotifier extends StateNotifier<MyDeviceState> {
   }
 
   Future<void> renameDevice(String newName) async {
-    await _identityManager.updateDeviceName(newName);
-    if (state.identity != null) {
-      final updated = _identityManager.identity;
-      state = state.copyWith(identity: updated);
-      if (updated != null) {
-        await RelayApiService.instance.registerDevice(
-          updated,
-          lanIp: state.localIp,
-          lanPort: state.lanPort,
-        );
-      }
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    if (state.identity == null) {
+      final identity = await _identityManager.getOrCreateIdentity();
+      state = state.copyWith(identity: identity);
     }
+    await _identityManager.updateDeviceName(trimmed);
+    final updated = _identityManager.identity;
+    if (updated == null) return;
+    state = MyDeviceState(
+      identity: updated,
+      localIp: state.localIp,
+      lanPort: state.lanPort,
+      isRelayConnected: state.isRelayConnected,
+    );
+    await RelayApiService.instance.registerDevice(
+      updated,
+      lanIp: state.localIp,
+      lanPort: state.lanPort,
+    );
   }
 }
 

@@ -122,9 +122,16 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              ref.read(myDeviceProvider.notifier).renameDevice(controller.text);
-              Navigator.of(ctx).pop();
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              await ref.read(myDeviceProvider.notifier).renameDevice(name);
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('This device is now $name')),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary),
             child: const Text('Save'),
@@ -299,7 +306,25 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                 ),
                 onChanged: (value) => setState(() => _query = value),
               )
-            : Text(_showArchived ? 'Archived' : 'Chats'),
+            : InkWell(
+                onTap: () {
+                  final current = myState.identity?.deviceName ?? '';
+                  _showRenameDialog(context, current.isEmpty ? 'This device' : current);
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      myState.identity?.deviceName ?? 'This device',
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                    ),
+                    const Text(
+                      'Tap the name to rename',
+                      style: TextStyle(fontSize: 11, color: DevSyncColors.textMuted, fontWeight: FontWeight.w400),
+                    ),
+                  ],
+                ),
+              ),
         leading: _showArchived
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),

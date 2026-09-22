@@ -188,6 +188,12 @@ class DatabaseService {
     await _settingsBox.put('is_authenticated', auth);
   }
 
+  String? readIdentityField(String key) => _settingsBox.get('identity_$key') as String?;
+
+  Future<void> writeIdentityField(String key, String value) async {
+    await _settingsBox.put('identity_$key', value);
+  }
+
   List<String> _idList(String key) {
     final raw = _settingsBox.get(key);
     if (raw is List) return raw.map((e) => e.toString()).toList();

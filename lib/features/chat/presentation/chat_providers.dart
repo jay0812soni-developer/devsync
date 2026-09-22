@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:crypto/crypto.dart' as dart_crypto;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,6 +13,7 @@ import '../../../core/network/relay_api_service.dart';
 import '../../../core/network/sse_relay_client.dart';
 import '../../../core/storage/database_service.dart';
 import '../../../core/storage/file_categorizer.dart';
+import '../../../core/storage/io_file.dart';
 import '../../../core/storage/local_file_manager.dart';
 import '../../devices/domain/device_model.dart';
 import '../../devices/presentation/device_providers.dart';
@@ -327,12 +327,11 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
     final myState = _ref.read(myDeviceProvider);
     if (currentPeer == null || myState.identity == null) return;
 
-    final file = File(filePath);
-    if (!await file.exists()) return;
+    if (!await IoFile.exists(filePath)) return;
 
     final fileName = p.basename(filePath);
-    final fileSize = await file.length();
-    final sha256 = await LocalFileManager.instance.calculateChecksum(file);
+    final fileSize = await IoFile.length(filePath);
+    final sha256 = await LocalFileManager.instance.calculateChecksumOfPath(filePath);
     final category = FileCategorizer.categorize(fileName);
 
     // Register on local HTTP server for LAN direct streaming

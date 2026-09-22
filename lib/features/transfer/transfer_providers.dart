@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/storage/file_categorizer.dart';
@@ -26,7 +26,7 @@ class TransferNotifier extends StateNotifier<Map<String, FileTransferModel>> {
     final transferId = const Uuid().v4();
     final category = FileCategorizer.categorize(meta.fileName);
     final targetDir = await LocalFileManager.instance.getCategoryDirectory(category);
-    final savePath = await LocalFileManager.instance.resolveUniquePath(targetDir.path, meta.fileName);
+    final savePath = await LocalFileManager.instance.resolveUniquePath(targetDir, meta.fileName);
 
     state = {
       ...state,
@@ -67,9 +67,8 @@ class TransferNotifier extends StateNotifier<Map<String, FileTransferModel>> {
       );
 
       // Verify checksum if available
-      final downloadedFile = File(savePath);
-      if (meta.sha256 != null && meta.sha256!.isNotEmpty) {
-        final actualSha = await LocalFileManager.instance.calculateChecksum(downloadedFile);
+      if (!kIsWeb && meta.sha256 != null && meta.sha256!.isNotEmpty) {
+        final actualSha = await LocalFileManager.instance.calculateChecksumOfPath(savePath);
         if (actualSha.toLowerCase() != meta.sha256!.toLowerCase()) {
           state = {
             ...state,

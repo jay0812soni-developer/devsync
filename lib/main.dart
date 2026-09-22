@@ -8,17 +8,30 @@ import 'core/storage/local_file_manager.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize persistent Hive storage
-  await DatabaseService.instance.initialize();
+  try {
+    await DatabaseService.instance.initialize();
+    if (!kIsWeb) {
+      await LocalFileManager.instance.initialize();
+    }
 
-  // Initialize DevSync organized directory hierarchy on native platforms
-  if (!kIsWeb) {
-    await LocalFileManager.instance.initialize();
+    runApp(
+      const ProviderScope(
+        child: DevSyncApp(),
+      ),
+    );
+  } catch (error, stack) {
+    debugPrint('DevSync failed to start: $error\n$stack');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: SelectableText('DevSync could not start.\n\n$error'),
+            ),
+          ),
+        ),
+      ),
+    );
   }
-
-  runApp(
-    const ProviderScope(
-      child: DevSyncApp(),
-    ),
-  );
 }

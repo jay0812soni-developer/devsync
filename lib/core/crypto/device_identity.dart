@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:crypto/crypto.dart' as dart_crypto;
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../storage/database_service.dart';
 
 /// Represents this physical device's sovereign cryptographic identity.
 class DeviceIdentity {
@@ -56,14 +56,33 @@ class DeviceIdentityManager {
 
   DeviceIdentity? get identity => _cachedIdentity;
 
+  Future<String?> _read(String key) async {
+    try {
+      final secure = await _storage.read(key: key);
+      if (secure != null && secure.isNotEmpty) return secure;
+    } catch (e) {
+      debugPrint('Secure storage read failed for $key: $e');
+    }
+    return DatabaseService.instance.readIdentityField(key);
+  }
+
+  Future<void> _write(String key, String value) async {
+    await DatabaseService.instance.writeIdentityField(key, value);
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (e) {
+      debugPrint('Secure storage write failed for $key: $e');
+    }
+  }
+
   /// Loads the existing device identity from secure storage, or creates one on first boot.
   Future<DeviceIdentity> getOrCreateIdentity() async {
     if (_cachedIdentity != null) return _cachedIdentity!;
 
-    final existingDeviceId = await _storage.read(key: _keyDeviceId);
-    final existingSigningPriv = await _storage.read(key: _keySigningPrivateKey);
-    final existingExchangePriv = await _storage.read(key: _keyExchangePrivateKey);
-    final existingName = await _storage.read(key: _keyDeviceName);
+    final existingDeviceId = await _read(_keyDeviceId);
+    final existingSigningPriv = await _read(_keySigningPrivateKey);
+    final existingExchangePriv = await _read(_keyExchangePrivateKey);
+    final existingName = await _read(_keyDeviceName);
 
     if (existingDeviceId != null &&
         existingSigningPriv != null &&
@@ -103,11 +122,10 @@ class DeviceIdentityManager {
     final deviceId = 'DEV-${hash.substring(0, 8).toUpperCase()}';
     final deviceName = _getDefaultDeviceName();
 
-    // Persist securely
-    await _storage.write(key: _keyDeviceId, value: deviceId);
-    await _storage.write(key: _keyDeviceName, value: deviceName);
-    await _storage.write(key: _keySigningPrivateKey, value: base64Encode(signingSeed));
-    await _storage.write(key: _keyExchangePrivateKey, value: base64Encode(exchangeSeed));
+    await _write(_keyDeviceId, deviceId);
+    await _write(_keyDeviceName, deviceName);
+    await _write(_keySigningPrivateKey, base64Encode(signingSeed));
+    await _write(_keyExchangePrivateKey, base64Encode(exchangeSeed));
 
     _cachedIdentity = DeviceIdentity(
       deviceId: deviceId,
@@ -124,38 +142,54 @@ class DeviceIdentityManager {
 
   /// Updates the friendly name of this device (e.g., "Jay's MacBook Pro M3").
   Future<void> updateDeviceName(String newName) async {
-    if (newName.trim().isEmpty) return;
-    await _storage.write(key: _keyDeviceName, value: newName.trim());
-    if (_cachedIdentity != null) {
-      _cachedIdentity = DeviceIdentity(
-        deviceId: _cachedIdentity!.deviceId,
-        deviceName: newName.trim(),
-        platform: _cachedIdentity!.platform,
-        signingPublicKeyBase64: _cachedIdentity!.signingPublicKeyBase64,
-        exchangePublicKeyBase64: _cachedIdentity!.exchangePublicKeyBase64,
-        signingKeyPair: _cachedIdentity!.signingKeyPair,
-        exchangeKeyPair: _cachedIdentity!.exchangeKeyPair,
-      );
-    }
+    final trimmed = newName.trim();
+    if (trimmed.isEmpty) return;
+    _cachedIdentity ??= await getOrCreateIdentity();
+    await _write(_keyDeviceName, trimmed);
+    _cachedIdentity = DeviceIdentity(
+      deviceId: _cachedIdentity!.deviceId,
+      deviceName: trimmed,
+      platform: _cachedIdentity!.platform,
+      signingPublicKeyBase64: _cachedIdentity!.signingPublicKeyBase64,
+      exchangePublicKeyBase64: _cachedIdentity!.exchangePublicKeyBase64,
+      signingKeyPair: _cachedIdentity!.signingKeyPair,
+      exchangeKeyPair: _cachedIdentity!.exchangeKeyPair,
+    );
   }
 
   String _getDefaultDeviceName() {
-    if (kIsWeb) return 'Web Browser Device';
-    if (Platform.isWindows) return 'Windows Dev Machine';
-    if (Platform.isMacOS) return 'Mac Dev Machine';
-    if (Platform.isLinux) return 'Linux Workstation';
-    if (Platform.isAndroid) return 'Android Device';
-    if (Platform.isIOS) return 'iOS Device';
-    return 'Dev Device';
+    if (kIsWeb) return 'Browser';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.windows:
+        return 'Windows';
+      case TargetPlatform.macOS:
+        return 'Mac';
+      case TargetPlatform.linux:
+        return 'Linux';
+      case TargetPlatform.android:
+        return 'Android';
+      case TargetPlatform.iOS:
+        return 'iPhone';
+      default:
+        return 'This device';
+    }
   }
 
   String _detectPlatform() {
     if (kIsWeb) return 'web';
-    if (Platform.isWindows) return 'windows';
-    if (Platform.isMacOS) return 'macos';
-    if (Platform.isLinux) return 'linux';
-    if (Platform.isAndroid) return 'android';
-    if (Platform.isIOS) return 'ios';
-    return 'unknown';
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.windows:
+        return 'windows';
+      case TargetPlatform.macOS:
+        return 'macos';
+      case TargetPlatform.linux:
+        return 'linux';
+      case TargetPlatform.android:
+        return 'android';
+      case TargetPlatform.iOS:
+        return 'ios';
+      default:
+        return 'unknown';
+    }
   }
 }
