@@ -13,6 +13,39 @@ class Formatters {
     return '${size.toStringAsFixed(clampedI == 0 ? 0 : decimals)} ${suffixes[clampedI]}';
   }
 
+  static String formatClock(DateTime dt) => DateFormat('HH:mm').format(dt);
+
+  static String formatDayChip(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    final delta = today.difference(day).inDays;
+    if (delta == 0) return 'Today';
+    if (delta == 1) return 'Yesterday';
+    if (delta < 7) return DateFormat('EEEE').format(dt);
+    return DateFormat('d MMM y').format(dt);
+  }
+
+  static String formatChatListTime(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    final delta = today.difference(day).inDays;
+    if (delta == 0) return DateFormat('HH:mm').format(dt);
+    if (delta == 1) return 'Yesterday';
+    if (delta < 7) return DateFormat('EEE').format(dt);
+    return DateFormat('d/M/yy').format(dt);
+  }
+
+  static String formatLastSeen(DateTime dt) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(dt.year, dt.month, dt.day);
+    if (day == today) return 'last seen today at ${DateFormat('HH:mm').format(dt)}';
+    if (today.difference(day).inDays == 1) return 'last seen yesterday at ${DateFormat('HH:mm').format(dt)}';
+    return 'last seen ${DateFormat('d MMM').format(dt)}';
+  }
+
   static String formatTimestamp(DateTime dt) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);

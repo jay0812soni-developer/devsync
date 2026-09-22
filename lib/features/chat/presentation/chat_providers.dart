@@ -41,10 +41,32 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
   }
 
   /// Reloads message list for the active conversation
-  void loadConversation(String peerDeviceId) {
+  Future<void> loadConversation(String peerDeviceId) async {
     final myDevice = _ref.read(myDeviceProvider).identity;
     if (myDevice == null) return;
+    final messages = DatabaseService.instance.getMessagesForConversation(myDevice.deviceId, peerDeviceId);
+    state = messages;
+    await DatabaseService.instance.clearUnread(peerDeviceId);
+
+    final peers = _ref.read(peersProvider);
+    DeviceModel? peer;
+    for (final p in peers) {
+      if (p.id == peerDeviceId) peer = p;
+    }
+    if (peer == null) {
+      _touch();
+      return;
+    }
+
+    for (final message in messages) {
+      if (!message.isOutgoing && message.status != MessageStatus.read && !message.isDeleted) {
+        final read = message.copyWith(status: MessageStatus.read);
+        await DatabaseService.instance.saveMessage(read);
+        await _sendControl(peer, myDevice, 'read|${message.id}');
+      }
+    }
     state = DatabaseService.instance.getMessagesForConversation(myDevice.deviceId, peerDeviceId);
+    _touch();
   }
 
   /// Handles incoming encrypted messages from either LAN or Vercel
@@ -58,6 +80,9 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       final recipientId = data['recipientDeviceId'] as String;
 
       if (recipientId != myIdentity.deviceId) return;
+
+      final typeStrEarly = data['type'] as String? ?? 'text';
+      if (typeStrEarly == 'device_paired') return;
 
       // Find sender peer
       final peers = _ref.read(peersProvider);
@@ -103,7 +128,15 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
         decryptedContent = '[Encrypted payload - Peer key unknown]';
       }
 
-      final typeStr = data['type'] as String? ?? 'text';
+      final typeStr = typeStrEarly;
+      if (typeStr == 'status' || typeStr == 'status_update') {
+        await _applyControl(decryptedContent);
+        _touch();
+        return;
+      }
+
+      if (DatabaseService.instance.getMessage(messageId) != null) return;
+
       final type = MessageType.values.firstWhere((e) => e.name == typeStr, orElse: () => MessageType.text);
 
       FileAttachmentMetadata? fileMeta;
@@ -143,18 +176,65 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
         );
       }
 
-      // If viewing this conversation, update active state
       final currentPeer = _ref.read(selectedPeerProvider);
-      if (currentPeer?.id == senderId) {
-        state = [...state, incomingMessage];
+      final chatIsOpen = currentPeer?.id == senderId;
+      if (chatIsOpen) {
+        final read = incomingMessage.copyWith(status: MessageStatus.read);
+        await DatabaseService.instance.saveMessage(read);
+        state = [...state, read];
+        await _sendControl(peer, myIdentity, 'read|$messageId');
+      } else if (!DatabaseService.instance.isMuted(senderId)) {
+        await DatabaseService.instance.incrementUnread(senderId);
+      } else {
+        await DatabaseService.instance.incrementUnread(senderId);
       }
+
+      await _sendControl(peer, myIdentity, 'delivered|$messageId');
+      _touch();
     } catch (e) {
       debugPrint('Error processing incoming message: $e');
     }
   }
 
+  Future<void> _applyControl(String content) async {
+    final parts = content.split('|');
+    if (parts.length != 2) return;
+    final action = parts[0];
+    final targetId = parts[1];
+    final existing = DatabaseService.instance.getMessage(targetId);
+    if (existing == null) return;
+
+    if (action == 'delete') {
+      final updated = existing.copyWith(isDeleted: true, content: '');
+      await DatabaseService.instance.saveMessage(updated);
+      state = [
+        for (final m in state)
+          if (m.id == targetId) updated else m,
+      ];
+      return;
+    }
+
+    MessageStatus? next;
+    if (action == 'delivered' && existing.status == MessageStatus.sent) {
+      next = MessageStatus.delivered;
+    } else if (action == 'read' && existing.status != MessageStatus.read) {
+      next = MessageStatus.read;
+    }
+    if (next == null) return;
+    final updated = existing.copyWith(status: next);
+    await DatabaseService.instance.saveMessage(updated);
+    state = [
+      for (final m in state)
+        if (m.id == targetId) updated else m,
+    ];
+  }
+
+  void _touch() {
+    _ref.read(conversationTickProvider.notifier).state++;
+  }
+
   /// Sends a plaintext message
-  Future<void> sendTextMessage(String text) async {
+  Future<void> sendTextMessage(String text, {MessageModel? replyTo}) async {
     final currentPeer = _ref.read(selectedPeerProvider);
     final myState = _ref.read(myDeviceProvider);
     if (currentPeer == null || myState.identity == null || text.trim().isEmpty) return;
@@ -164,7 +244,66 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       type: MessageType.text,
       peer: currentPeer,
       myIdentity: myState.identity!,
+      replyToId: replyTo?.id,
+      replyPreview: replyTo == null ? null : _preview(replyTo),
     );
+  }
+
+  Future<void> sendTextToPeer(DeviceModel peer, String text) async {
+    final myState = _ref.read(myDeviceProvider);
+    if (myState.identity == null || text.trim().isEmpty) return;
+    await _dispatchMessage(
+      content: text.trim(),
+      type: MessageType.text,
+      peer: peer,
+      myIdentity: myState.identity!,
+    );
+  }
+
+  Future<void> toggleStar(MessageModel message) async {
+    final updated = message.copyWith(isStarred: !message.isStarred);
+    await DatabaseService.instance.saveMessage(updated);
+    state = [
+      for (final m in state)
+        if (m.id == message.id) updated else m,
+    ];
+    _touch();
+  }
+
+  Future<void> deleteForMe(MessageModel message) async {
+    await DatabaseService.instance.deleteMessage(message.id);
+    state = state.where((m) => m.id != message.id).toList();
+    _touch();
+  }
+
+  Future<void> deleteForEveryone(MessageModel message) async {
+    final peer = _ref.read(selectedPeerProvider);
+    final me = _ref.read(myDeviceProvider).identity;
+    final updated = message.copyWith(isDeleted: true, content: '');
+    await DatabaseService.instance.saveMessage(updated);
+    state = [
+      for (final m in state)
+        if (m.id == message.id) updated else m,
+    ];
+    if (peer != null && me != null) {
+      await _sendControl(peer, me, 'delete|${message.id}');
+    }
+    _touch();
+  }
+
+  String _preview(MessageModel message) {
+    if (message.isDeleted) return 'This message was deleted';
+    switch (message.type) {
+      case MessageType.file:
+        return message.fileMetadata?.fileName ?? 'File';
+      case MessageType.code:
+        return 'Code';
+      case MessageType.status:
+        return '';
+      case MessageType.text:
+        final text = message.content.replaceAll('\n', ' ');
+        return text.length > 80 ? '${text.substring(0, 80)}…' : text;
+    }
   }
 
   /// Sends a syntax-highlighted code snippet
@@ -264,6 +403,16 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
   }
 
   /// Internal dispatch engine: chooses LAN direct or Vercel relay
+  Future<void> _sendControl(DeviceModel peer, DeviceIdentity myIdentity, String content) {
+    return _dispatchMessage(
+      content: content,
+      type: MessageType.status,
+      peer: peer,
+      myIdentity: myIdentity,
+      visible: false,
+    );
+  }
+
   Future<void> _dispatchMessage({
     required String content,
     required MessageType type,
@@ -274,26 +423,35 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
     int? fileSize,
     String? sha256,
     FileAttachmentMetadata? fileMetadata,
+    String? replyToId,
+    String? replyPreview,
+    bool visible = true,
   }) async {
     final messageId = const Uuid().v4();
 
-    // Local model
     final message = MessageModel(
       id: messageId,
       senderDeviceId: myIdentity.deviceId,
       recipientDeviceId: peer.id,
       content: content,
       type: type,
-      status: MessageStatus.sent,
+      status: MessageStatus.pending,
       timestamp: DateTime.now(),
       isOutgoing: true,
       codeLanguage: codeLanguage,
       fileMetadata: fileMetadata,
+      replyToId: replyToId,
+      replyPreview: replyPreview,
     );
 
-    // Save and display immediately
-    await DatabaseService.instance.saveMessage(message);
-    state = [...state, message];
+    final viewing = _ref.read(selectedPeerProvider)?.id == peer.id;
+    if (visible) {
+      await DatabaseService.instance.saveMessage(message);
+      if (viewing) {
+        state = [...state, message];
+      }
+      _touch();
+    }
 
     // Encrypt payload for peer
     if (peer.exchangePublicKey.isEmpty) {
@@ -342,8 +500,10 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
 
         if (response.statusCode == 200) {
           delivered = true;
-          await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.delivered);
-          _updateMessageStatusInState(messageId, MessageStatus.delivered);
+          if (visible) {
+            await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.delivered);
+            _updateMessageStatusInState(messageId, MessageStatus.delivered);
+          }
         }
       } catch (_) {
         // Fallback to Vercel relay
@@ -352,7 +512,7 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
 
     // 2. Fallback to Vercel relay if not delivered via LAN
     if (!delivered) {
-      await RelayApiService.instance.sendEncryptedMessage(
+      final queued = await RelayApiService.instance.sendEncryptedMessage(
         messageId: messageId,
         senderDeviceId: myIdentity.deviceId,
         recipientDeviceId: peer.id,
@@ -365,6 +525,10 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
         fileSize: fileSize,
         sha256: sha256,
       );
+      if (visible && queued) {
+        await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.sent);
+        _updateMessageStatusInState(messageId, MessageStatus.sent);
+      }
     }
   }
 
@@ -387,3 +551,5 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
 final chatProvider = StateNotifierProvider<ChatNotifier, List<MessageModel>>((ref) {
   return ChatNotifier(ref);
 });
+
+final conversationTickProvider = StateProvider<int>((ref) => 0);

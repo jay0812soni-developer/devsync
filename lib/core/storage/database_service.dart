@@ -68,6 +68,28 @@ class DatabaseService {
       }
     }
     messages.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return messages.where((m) => m.type != MessageType.status).toList();
+  }
+
+  MessageModel? getLastMessage(String myDeviceId, String peerDeviceId) {
+    final messages = getMessagesForConversation(myDeviceId, peerDeviceId);
+    if (messages.isEmpty) return null;
+    return messages.last;
+  }
+
+  List<MessageModel> getStarredMessages() {
+    final messages = <MessageModel>[];
+    for (final raw in _messagesBox.values) {
+      if (raw is Map) {
+        try {
+          final msg = MessageModel.fromJson(Map<String, dynamic>.from(raw));
+          if (msg.isStarred && !msg.isDeleted && msg.type != MessageType.status) {
+            messages.add(msg);
+          }
+        } catch (_) {}
+      }
+    }
+    messages.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return messages;
   }
 
@@ -83,6 +105,10 @@ class DatabaseService {
 
   Future<void> saveMessage(MessageModel message) async {
     await _messagesBox.put(message.id, message.toJson());
+  }
+
+  Future<void> deleteMessage(String messageId) async {
+    await _messagesBox.delete(messageId);
   }
 
   Future<void> updateMessageStatus(String messageId, MessageStatus status) async {
@@ -160,5 +186,66 @@ class DatabaseService {
 
   Future<void> setAuthenticated(bool auth) async {
     await _settingsBox.put('is_authenticated', auth);
+  }
+
+  List<String> _idList(String key) {
+    final raw = _settingsBox.get(key);
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return [];
+  }
+
+  Future<void> _toggleId(String key, String id, bool enabled) async {
+    final list = _idList(key);
+    if (enabled) {
+      if (!list.contains(id)) list.add(id);
+    } else {
+      list.remove(id);
+    }
+    await _settingsBox.put(key, list);
+  }
+
+  bool isPinned(String deviceId) => _idList('chat_pins').contains(deviceId);
+  bool isMuted(String deviceId) => _idList('chat_mutes').contains(deviceId);
+  bool isArchived(String deviceId) => _idList('chat_archives').contains(deviceId);
+
+  Future<void> setPinned(String deviceId, bool value) => _toggleId('chat_pins', deviceId, value);
+  Future<void> setMuted(String deviceId, bool value) => _toggleId('chat_mutes', deviceId, value);
+  Future<void> setArchived(String deviceId, bool value) => _toggleId('chat_archives', deviceId, value);
+
+  int unreadCount(String deviceId) {
+    final raw = _settingsBox.get('chat_unread');
+    if (raw is Map && raw[deviceId] is int) return raw[deviceId] as int;
+    return 0;
+  }
+
+  Future<void> incrementUnread(String deviceId) async {
+    final raw = _settingsBox.get('chat_unread');
+    final map = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    map[deviceId] = (map[deviceId] as int? ?? 0) + 1;
+    await _settingsBox.put('chat_unread', map);
+  }
+
+  Future<void> clearUnread(String deviceId) async {
+    final raw = _settingsBox.get('chat_unread');
+    if (raw is! Map) return;
+    final map = Map<String, dynamic>.from(raw);
+    map.remove(deviceId);
+    await _settingsBox.put('chat_unread', map);
+  }
+
+  Future<void> clearConversation(String myDeviceId, String peerDeviceId) async {
+    final ids = <dynamic>[];
+    for (final key in _messagesBox.keys) {
+      final raw = _messagesBox.get(key);
+      if (raw is Map) {
+        final sender = raw['senderDeviceId'];
+        final recipient = raw['recipientDeviceId'];
+        final inThread = (sender == myDeviceId && recipient == peerDeviceId) ||
+            (sender == peerDeviceId && recipient == myDeviceId);
+        if (inThread) ids.add(key);
+      }
+    }
+    await _messagesBox.deleteAll(ids);
+    await clearUnread(peerDeviceId);
   }
 }

@@ -10,8 +10,9 @@ import 'status_tick_icon.dart';
 
 class FileMessageBubble extends ConsumerWidget {
   final MessageModel message;
+  final VoidCallback? onLongPress;
 
-  const FileMessageBubble({super.key, required this.message});
+  const FileMessageBubble({super.key, required this.message, this.onLongPress});
 
   IconData _getCategoryIcon(String category) {
     switch (category.toLowerCase()) {
@@ -69,7 +70,9 @@ class FileMessageBubble extends ConsumerWidget {
 
     return Align(
       alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.82,
@@ -253,6 +256,7 @@ class FileMessageBubble extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

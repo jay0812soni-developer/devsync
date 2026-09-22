@@ -71,6 +71,10 @@ class MessageModel {
   final bool isOutgoing;
   final String? codeLanguage;
   final FileAttachmentMetadata? fileMetadata;
+  final String? replyToId;
+  final String? replyPreview;
+  final bool isStarred;
+  final bool isDeleted;
 
   MessageModel({
     required this.id,
@@ -83,6 +87,10 @@ class MessageModel {
     required this.isOutgoing,
     this.codeLanguage,
     this.fileMetadata,
+    this.replyToId,
+    this.replyPreview,
+    this.isStarred = false,
+    this.isDeleted = false,
   });
 
   MessageModel copyWith({
@@ -90,6 +98,10 @@ class MessageModel {
     MessageStatus? status,
     FileAttachmentMetadata? fileMetadata,
     bool? isOutgoing,
+    String? replyToId,
+    String? replyPreview,
+    bool? isStarred,
+    bool? isDeleted,
   }) {
     return MessageModel(
       id: id,
@@ -102,6 +114,10 @@ class MessageModel {
       isOutgoing: isOutgoing ?? this.isOutgoing,
       codeLanguage: codeLanguage,
       fileMetadata: fileMetadata ?? this.fileMetadata,
+      replyToId: replyToId ?? this.replyToId,
+      replyPreview: replyPreview ?? this.replyPreview,
+      isStarred: isStarred ?? this.isStarred,
+      isDeleted: isDeleted ?? this.isDeleted,
     );
   }
 
@@ -116,6 +132,10 @@ class MessageModel {
         'isOutgoing': isOutgoing,
         'codeLanguage': codeLanguage,
         'fileMetadata': fileMetadata?.toJson(),
+        'replyToId': replyToId,
+        'replyPreview': replyPreview,
+        'isStarred': isStarred,
+        'isDeleted': isDeleted,
       };
 
   factory MessageModel.fromJson(Map<String, dynamic> json) {
@@ -140,6 +160,10 @@ class MessageModel {
       fileMetadata: json['fileMetadata'] != null
           ? FileAttachmentMetadata.fromJson(json['fileMetadata'] as Map<String, dynamic>)
           : null,
+      replyToId: json['replyToId'] as String?,
+      replyPreview: json['replyPreview'] as String?,
+      isStarred: json['isStarred'] as bool? ?? false,
+      isDeleted: json['isDeleted'] as bool? ?? false,
     );
   }
 }

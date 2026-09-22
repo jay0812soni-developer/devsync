@@ -7,8 +7,9 @@ import 'status_tick_icon.dart';
 
 class TextMessageBubble extends StatelessWidget {
   final MessageModel message;
+  final VoidCallback? onLongPress;
 
-  const TextMessageBubble({super.key, required this.message});
+  const TextMessageBubble({super.key, required this.message, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -17,16 +18,17 @@ class TextMessageBubble extends StatelessWidget {
     return Align(
       alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
       child: InkWell(
-        onLongPress: () {
-          Clipboard.setData(ClipboardData(text: message.content));
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Message copied to clipboard'),
-              duration: Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        },
+        onLongPress: onLongPress ??
+            () {
+              Clipboard.setData(ClipboardData(text: message.content));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Message copied'),
+                  duration: Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            },
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 3, horizontal: 12),
           constraints: BoxConstraints(
@@ -50,22 +52,44 @@ class TextMessageBubble extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SelectableText(
-                message.content,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: DevSyncColors.textPrimary,
+              if (message.replyPreview != null && message.replyPreview!.isNotEmpty && !message.isDeleted)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: DevSyncColors.background.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(4),
+                    border: const Border(left: BorderSide(color: DevSyncColors.primary, width: 3)),
+                  ),
+                  child: Text(
+                    message.replyPreview!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                  ),
+                ),
+              Text(
+                message.isDeleted ? 'This message was deleted' : message.content,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: message.isDeleted ? DevSyncColors.textMuted : DevSyncColors.textPrimary,
+                  fontStyle: message.isDeleted ? FontStyle.italic : FontStyle.normal,
                   height: 1.35,
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (message.isStarred) ...[
+                    const Icon(Icons.star_rounded, size: 12, color: DevSyncColors.warning),
+                    const SizedBox(width: 3),
+                  ],
                   Text(
-                    Formatters.formatTimestamp(message.timestamp),
-                    style: const TextStyle(fontSize: 10, color: DevSyncColors.textMuted),
+                    Formatters.formatClock(message.timestamp),
+                    style: const TextStyle(fontSize: 11, color: DevSyncColors.textMuted),
                   ),
                   if (isOutgoing) ...[
                     const SizedBox(width: 4),

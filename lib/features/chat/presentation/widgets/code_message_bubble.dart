@@ -9,8 +9,9 @@ import 'status_tick_icon.dart';
 
 class CodeMessageBubble extends StatelessWidget {
   final MessageModel message;
+  final VoidCallback? onLongPress;
 
-  const CodeMessageBubble({super.key, required this.message});
+  const CodeMessageBubble({super.key, required this.message, this.onLongPress});
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +20,9 @@ class CodeMessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isOutgoing ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
+      child: GestureDetector(
+        onLongPress: onLongPress,
+        child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.85,
@@ -135,6 +138,7 @@ class CodeMessageBubble extends StatelessWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

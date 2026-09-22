@@ -72,7 +72,7 @@ class DevSyncHomeScaffold extends ConsumerWidget {
                           ),
                           const SizedBox(height: 20),
                           const Text(
-                            'Pick a device',
+                            'Select a chat',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
