@@ -32,6 +32,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   bool _isVerifying = false;
   bool _isResending = false;
   String? _errorMessage;
+  String? _activeDebugOtp;
 
   // Cooldown timer
   int _resendCooldown = 60;
@@ -40,11 +41,12 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    _activeDebugOtp = widget.debugOtp;
     _startCooldownTimer();
 
-    // Auto-fill debug OTP in local dev if present
-    if (widget.debugOtp != null && widget.debugOtp!.length == 6) {
-      _pinController.text = widget.debugOtp!;
+    // Auto-fill OTP if present
+    if (_activeDebugOtp != null && _activeDebugOtp!.length == 6) {
+      _pinController.text = _activeDebugOtp!;
     }
   }
 
@@ -88,6 +90,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final result = await RelayApiService.instance.verifyOtp(
       email: widget.email,
       otp: otp,
+      phone: widget.phone,
       identity: identity,
     );
 
@@ -144,9 +147,15 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
 
     if (result['success'] == true) {
       _startCooldownTimer();
+      if (result['debugOtp'] != null) {
+        setState(() {
+          _activeDebugOtp = result['debugOtp'] as String;
+          _pinController.text = _activeDebugOtp!;
+        });
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('A new 6-digit OTP has been sent to your email!'),
+          content: Text('A new 6-digit verification code has been sent! Please check your Inbox and Spam folder.'),
           backgroundColor: DevSyncColors.success,
         ),
       );
@@ -269,7 +278,76 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 14),
+
+                  // Spam reminder & fallback helper banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF161B22),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF30363D)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.info_outline_rounded, size: 15, color: DevSyncColors.secondary),
+                            SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                "Can't find the email? Please check your Spam or Junk folder.",
+                                style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_activeDebugOtp != null && _activeDebugOtp!.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () {
+                              _pinController.text = _activeDebugOtp!;
+                              _verifyOtp(_activeDebugOtp!);
+                            },
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: DevSyncColors.primary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: DevSyncColors.primary.withValues(alpha: 0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text(
+                                    'Quick Fill OTP: ',
+                                    style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
+                                  ),
+                                  Text(
+                                    _activeDebugOtp!,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                      color: DevSyncColors.primary,
+                                      letterSpacing: 2,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.touch_app_rounded, size: 14, color: DevSyncColors.primary),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
 
                   // Pinput 6-Digit Code Component
                   Pinput(

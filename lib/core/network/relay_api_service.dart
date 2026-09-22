@@ -177,6 +177,7 @@ class RelayApiService {
     required String email,
     required String otp,
     required DeviceIdentity identity,
+    String? phone,
     String? lanIp,
     int? lanPort,
   }) async {
@@ -188,6 +189,7 @@ class RelayApiService {
         body: jsonEncode({
           'email': email.trim(),
           'otp': otp.trim(),
+          'phone': phone?.trim(),
           'device': {
             'deviceId': identity.deviceId,
             'deviceName': identity.deviceName,
