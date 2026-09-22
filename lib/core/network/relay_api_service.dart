@@ -16,9 +16,15 @@ class RelayApiService {
   String get _baseUrl => DatabaseService.instance.getRelayUrl().replaceAll(RegExp(r'/+$'), '');
 
   /// Registers this device's public keys and presence with the Vercel relay
-  Future<bool> registerDevice(DeviceIdentity identity, {String? lanIp, int? lanPort}) async {
+  Future<bool> registerDevice(
+    DeviceIdentity identity, {
+    String? lanIp,
+    int? lanPort,
+    String? connectionCode,
+  }) async {
     try {
       final url = Uri.parse('$_baseUrl/api/devices/register');
+      final code = connectionCode ?? DatabaseService.instance.getConnectionCode();
       final body = jsonEncode({
         'deviceId': identity.deviceId,
         'deviceName': identity.deviceName,
@@ -27,6 +33,8 @@ class RelayApiService {
         'exchangePublicKey': identity.exchangePublicKeyBase64,
         'lanIp': lanIp,
         'lanPort': lanPort,
+        if (code != null && code.trim().isNotEmpty)
+          'connectionCode': code.replaceAll(RegExp(r'[^0-9]'), '').trim(),
       });
 
       final response = await _client.post(
@@ -281,7 +289,7 @@ class RelayApiService {
 
   /// Rotates the 6-digit connection code for this user
   Future<String?> regenerateConnectionCode({
-    required String email,
+    String? email,
     required String deviceId,
   }) async {
     try {
@@ -290,7 +298,7 @@ class RelayApiService {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'email': email.trim(),
+          if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
           'deviceId': deviceId,
         }),
       );

@@ -820,11 +820,20 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
 
     if (confirmed == true) {
       final newCode = await RelayApiService.instance.regenerateConnectionCode(
-        email: email,
+        email: email.isNotEmpty ? email : null,
         deviceId: deviceId,
       );
       if (newCode != null) {
         await DatabaseService.instance.setConnectionCode(newCode);
+        final myState = ref.read(myDeviceProvider);
+        if (myState.identity != null) {
+          await RelayApiService.instance.registerDevice(
+            myState.identity!,
+            lanIp: myState.localIp,
+            lanPort: myState.lanPort,
+            connectionCode: newCode,
+          );
+        }
         setState(() {});
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

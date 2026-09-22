@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../core/constants/app_theme.dart';
+import '../../../core/network/relay_api_service.dart';
 import '../../../core/storage/database_service.dart';
 import 'device_providers.dart';
 import 'qr_scanner_sheet.dart';
@@ -23,6 +24,16 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final myState = ref.read(myDeviceProvider);
+      if (myState.identity != null) {
+        RelayApiService.instance.registerDevice(
+          myState.identity!,
+          lanIp: myState.localIp,
+          lanPort: myState.lanPort,
+        );
+      }
+    });
   }
 
   @override
