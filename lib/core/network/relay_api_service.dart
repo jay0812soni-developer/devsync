@@ -351,8 +351,10 @@ class RelayApiService {
         if (data['peers'] is List) {
           for (final p in (data['peers'] as List)) {
             if (p is Map<String, dynamic>) {
+              final devId = p['deviceId'] as String?;
+              if (devId == null || devId == identity.deviceId) continue;
               peersList.add(DeviceModel(
-                id: p['deviceId'] as String,
+                id: devId,
                 name: p['deviceName'] as String? ?? 'Mesh Peer',
                 platform: p['platform'] as String? ?? 'unknown',
                 signingPublicKey: p['signingPublicKey'] as String? ?? '',
@@ -365,20 +367,24 @@ class RelayApiService {
               ));
             }
           }
-        } else if (data['pairedDevice'] != null) {
+        }
+        if (data['pairedDevice'] != null) {
           final pd = data['pairedDevice'] as Map<String, dynamic>;
-          peersList.add(DeviceModel(
-            id: pd['deviceId'] as String,
-            name: pd['deviceName'] as String? ?? 'Primary Device',
-            platform: pd['platform'] as String? ?? 'unknown',
-            signingPublicKey: pd['signingPublicKey'] as String? ?? '',
-            exchangePublicKey: pd['exchangePublicKey'] as String? ?? '',
-            lanIp: pd['lanIp'] as String?,
-            lanPort: pd['lanPort'] as int?,
-            isOnline: true,
-            isLanAvailable: false,
-            lastSeen: DateTime.now(),
-          ));
+          final pId = pd['deviceId'] as String?;
+          if (pId != null && pId != identity.deviceId && !peersList.any((p) => p.id == pId)) {
+            peersList.add(DeviceModel(
+              id: pId,
+              name: pd['deviceName'] as String? ?? 'Primary Device',
+              platform: pd['platform'] as String? ?? 'unknown',
+              signingPublicKey: pd['signingPublicKey'] as String? ?? '',
+              exchangePublicKey: pd['exchangePublicKey'] as String? ?? '',
+              lanIp: pd['lanIp'] as String?,
+              lanPort: pd['lanPort'] as int?,
+              isOnline: true,
+              isLanAvailable: false,
+              lastSeen: DateTime.now(),
+            ));
+          }
         }
 
         // Save peers to database
@@ -392,12 +398,19 @@ class RelayApiService {
           deviceId: identity.deviceId,
         );
 
+        final pairedDevice = peersList.isNotEmpty
+            ? peersList.firstWhere(
+                (p) => (data['pairedDevice'] != null && p.id == data['pairedDevice']['deviceId']),
+                orElse: () => peersList.first,
+              )
+            : null;
+
         return {
           'success': true,
           'message': data['message'],
           'connectionCode': data['connectionCode'] ?? (group != null ? group['connectionCode'] : null),
           'user': data['user'],
-          'pairedDevice': peersList.isNotEmpty ? peersList.first : null,
+          'pairedDevice': pairedDevice,
           'peers': peersList,
         };
       } else {
@@ -412,16 +425,34 @@ class RelayApiService {
   /// Fetches all active devices in this user's personal mesh network
   Future<List<DeviceModel>> fetchGroupMembers() async {
     final token = DatabaseService.instance.getAuthToken();
-    if (token == null || token.isEmpty) return [];
+    final code = DatabaseService.instance.getConnectionCode();
+    final myDevId = DatabaseService.instance.readIdentityField('device_id');
+
+    if ((token == null || token.isEmpty) &&
+        (code == null || code.isEmpty) &&
+        (myDevId == null || myDevId.isEmpty)) {
+      return [];
+    }
 
     try {
-      final url = Uri.parse('$_baseUrl/api/v1/devices/group-members');
+      final queryParams = <String, String>{
+        if (myDevId != null && myDevId.isNotEmpty) 'deviceId': myDevId,
+        if (code != null && code.isNotEmpty) 'code': code,
+      };
+
+      var url = Uri.parse('$_baseUrl/api/v1/devices/group-members');
+      if (queryParams.isNotEmpty) {
+        url = url.replace(queryParameters: queryParams);
+      }
+
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
       final response = await _client.get(
         url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: headers,
       );
 
       if (response.statusCode == 200) {
@@ -430,8 +461,12 @@ class RelayApiService {
         final list = <DeviceModel>[];
         for (final m in members) {
           if (m is Map<String, dynamic>) {
+            final devId = m['deviceId'] as String?;
+            if (devId == null || (myDevId != null && devId == myDevId)) {
+              continue; // Do not include local device as remote peer
+            }
             final model = DeviceModel(
-              id: m['deviceId'] as String,
+              id: devId,
               name: m['deviceName'] as String? ?? 'Dev Device',
               platform: m['platform'] as String? ?? 'unknown',
               signingPublicKey: m['signingPublicKey'] as String? ?? '',
@@ -440,7 +475,9 @@ class RelayApiService {
               lanPort: m['lanPort'] as int?,
               isOnline: m['isOnline'] == true,
               isLanAvailable: false,
-              lastSeen: DateTime.fromMillisecondsSinceEpoch(m['lastSeenAt'] as int? ?? DateTime.now().millisecondsSinceEpoch),
+              lastSeen: DateTime.fromMillisecondsSinceEpoch(
+                m['lastSeenAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
+              ),
             );
             list.add(model);
             await DatabaseService.instance.savePeer(model);

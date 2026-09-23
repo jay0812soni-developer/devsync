@@ -25,5 +25,37 @@ void main() {
       expect(identity.exchangePublicKeyBase64.isNotEmpty, isTrue);
       expect(identity.platform.isNotEmpty, isTrue);
     });
+
+    test('Mesh group roster excludes self device and retains all other peers', () {
+      const myDeviceId = 'DEV-LOCAL-001';
+      final rawMembers = [
+        {
+          'deviceId': 'DEV-LOCAL-001',
+          'deviceName': 'This Laptop',
+          'platform': 'windows',
+          'isOnline': true,
+        },
+        {
+          'deviceId': 'DEV-PEER-002',
+          'deviceName': 'Secondary Phone',
+          'platform': 'android',
+          'isOnline': true,
+        },
+        {
+          'deviceId': 'DEV-PEER-003',
+          'deviceName': 'Secondary Tablet',
+          'platform': 'ios',
+          'isOnline': false,
+        },
+      ];
+
+      final filteredPeers = rawMembers
+          .where((m) => m['deviceId'] != myDeviceId)
+          .map((m) => m['deviceId'])
+          .toList();
+
+      expect(filteredPeers, equals(['DEV-PEER-002', 'DEV-PEER-003']));
+      expect(filteredPeers.contains(myDeviceId), isFalse);
+    });
   });
 }

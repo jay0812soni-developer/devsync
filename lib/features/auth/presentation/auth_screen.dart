@@ -138,6 +138,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     if (result['success'] == true) {
       final pairedDev = result['pairedDevice'] as DeviceModel?;
       final user = result['user'] as Map<String, dynamic>?;
+      final rawPeers = result['peers'];
+      final peersList = rawPeers is List<DeviceModel>
+          ? rawPeers
+          : (rawPeers is List ? rawPeers.whereType<DeviceModel>().toList() : <DeviceModel>[]);
 
       // Save credentials & connection status
       await DatabaseService.instance.setConnectionCode(cleanCode);
@@ -146,10 +150,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
         await DatabaseService.instance.setUserEmail(user['email']);
       }
 
-      // Add paired peer to local store
+      // Add all returned group peers to local store and peersProvider
+      for (final p in peersList) {
+        await DatabaseService.instance.savePeer(p);
+        ref.read(peersProvider.notifier).addOrUpdatePeer(p);
+      }
+
+      // Add primary paired peer to local store and peersProvider
       if (pairedDev != null) {
         await DatabaseService.instance.savePeer(pairedDev);
+        ref.read(peersProvider.notifier).addOrUpdatePeer(pairedDev);
       }
+
+      // Trigger immediate mesh refresh from backend
+      await ref.read(peersProvider.notifier).refreshMeshPeers();
 
       if (mounted) {
         await HurrayConnectionDialog.show(

@@ -34,6 +34,9 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
   void initState() {
     super.initState();
     _subscribeToPairingEvents();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(peersProvider.notifier).refreshMeshPeers();
+    });
   }
 
   void _subscribeToPairingEvents() {
@@ -52,8 +55,14 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
         final data = jsonDecode(decoded) as Map<String, dynamic>;
         final pd = data['pairedDevice'] as Map<String, dynamic>?;
         if (pd != null) {
+          final peerId = pd['deviceId'] as String?;
+          final myId = DatabaseService.instance.readIdentityField('device_id');
+          if (peerId == null || (myId != null && peerId == myId)) {
+            return;
+          }
+
           final newPeer = DeviceModel(
-            id: pd['deviceId'] as String,
+            id: peerId,
             name: pd['deviceName'] as String? ?? 'Remote Device',
             platform: pd['platform'] as String? ?? 'unknown',
             signingPublicKey: pd['signingPublicKey'] as String? ?? '',
@@ -66,6 +75,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
           );
           DatabaseService.instance.savePeer(newPeer);
           ref.read(peersProvider.notifier).addOrUpdatePeer(newPeer);
+          ref.read(peersProvider.notifier).refreshMeshPeers();
 
           final code = DatabaseService.instance.getConnectionCode() ?? '------';
           HurrayConnectionDialog.show(
@@ -376,38 +386,42 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
               onPressed: _openLinkSheet,
               child: const Icon(Icons.chat_rounded),
             ),
-      body: ListView(
-        children: [
-          if (!_showArchived && archived.isNotEmpty)
-            ListTile(
-              leading: const Icon(Icons.archive_outlined, color: DevSyncColors.textSecondary),
-              title: const Text('Archived'),
-              trailing: Text('${archived.length}', style: const TextStyle(color: DevSyncColors.textMuted)),
-              onTap: () => setState(() => _showArchived = true),
-            ),
-          if (visible.isEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
-              child: Column(
-                children: [
-                  const Icon(Icons.forum_outlined, size: 42, color: DevSyncColors.textMuted),
-                  const SizedBox(height: 12),
-                  Text(
-                    peers.isEmpty ? 'No devices linked yet' : 'No chats match',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Link the other laptop, then send files the same way you would send a chat.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: DevSyncColors.textMuted, height: 1.4),
-                  ),
-                ],
+      body: RefreshIndicator(
+        onRefresh: () => ref.read(peersProvider.notifier).refreshMeshPeers(),
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            if (!_showArchived && archived.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.archive_outlined, color: DevSyncColors.textSecondary),
+                title: const Text('Archived'),
+                trailing: Text('${archived.length}', style: const TextStyle(color: DevSyncColors.textMuted)),
+                onTap: () => setState(() => _showArchived = true),
               ),
-            )
-          else
-            for (final peer in visible) _buildPeerTile(context, peer, myId),
-        ],
+            if (visible.isEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(32, 72, 32, 24),
+                child: Column(
+                  children: [
+                    const Icon(Icons.forum_outlined, size: 42, color: DevSyncColors.textMuted),
+                    const SizedBox(height: 12),
+                    Text(
+                      peers.isEmpty ? 'No devices linked yet' : 'No chats match',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Link the other laptop, then send files the same way you would send a chat.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: DevSyncColors.textMuted, height: 1.4),
+                    ),
+                  ],
+                ),
+              )
+            else
+              for (final peer in visible) _buildPeerTile(context, peer, myId),
+          ],
+        ),
       ),
     );
   }

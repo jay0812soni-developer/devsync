@@ -100,6 +100,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       await DatabaseService.instance.setConnectionCode(code);
       await DatabaseService.instance.setAuthenticated(true);
 
+      // Refresh mesh peers for primary device
+      await ref.read(peersProvider.notifier).refreshMeshPeers();
+
       if (mounted) {
         await HurrayConnectionDialog.show(
           context,

@@ -137,16 +137,24 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   StreamSubscription? _discoverySub;
   StreamSubscription? _presenceSub;
   StreamSubscription? _deviceJoinedSub;
+  Timer? _meshRefreshTimer;
 
   PeersNotifier() : super([]) {
     _loadStoredPeers();
     _listenToLanDiscovery();
     _listenToMeshEvents();
     refreshMeshPeers();
+    // Periodically refresh personal mesh peers every 10 seconds
+    // so all secondary and primary devices auto-discover the entire group
+    _meshRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      refreshMeshPeers();
+    });
   }
 
   void _loadStoredPeers() {
-    state = DatabaseService.instance.getAllPeers();
+    final myId = DatabaseService.instance.readIdentityField('device_id');
+    final allPeers = DatabaseService.instance.getAllPeers();
+    state = allPeers.where((p) => myId == null || p.id != myId).toList();
   }
 
   void _listenToLanDiscovery() {
@@ -167,8 +175,12 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
     _deviceJoinedSub = PersistentWsClient.instance.deviceJoinedStream.listen((data) {
       final devData = data['device'] as Map<String, dynamic>?;
       if (devData != null) {
+        final devId = devData['deviceId'] as String?;
+        final myId = DatabaseService.instance.readIdentityField('device_id');
+        if (devId == null || (myId != null && devId == myId)) return;
+
         final peer = DeviceModel(
-          id: devData['deviceId'] as String,
+          id: devId,
           name: devData['deviceName'] as String? ?? 'Mesh Peer',
           platform: devData['platform'] as String? ?? 'unknown',
           signingPublicKey: devData['signingPublicKey'] as String? ?? '',
@@ -185,10 +197,13 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   }
 
   Future<void> refreshMeshPeers() async {
+    final myId = DatabaseService.instance.readIdentityField('device_id');
     final list = await RelayApiService.instance.fetchGroupMembers();
     if (list.isNotEmpty) {
       for (final p in list) {
-        addOrUpdatePeer(p);
+        if (myId == null || p.id != myId) {
+          addOrUpdatePeer(p);
+        }
       }
     }
   }
@@ -205,6 +220,11 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   }
 
   void addOrUpdatePeer(DeviceModel peer) {
+    final myId = DatabaseService.instance.readIdentityField('device_id');
+    if (myId != null && peer.id == myId) {
+      return; // Never display local device in remote peer list
+    }
+
     final existingIndex = state.indexWhere((p) => p.id == peer.id);
     if (existingIndex >= 0) {
       final current = state[existingIndex];
@@ -249,6 +269,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
 
   @override
   void dispose() {
+    _meshRefreshTimer?.cancel();
     _discoverySub?.cancel();
     _presenceSub?.cancel();
     _deviceJoinedSub?.cancel();
