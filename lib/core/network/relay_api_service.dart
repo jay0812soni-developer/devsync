@@ -151,6 +151,53 @@ class RelayApiService {
 
   // --- Auth & Multi-Device Mesh APIs ---
 
+  /// Safely attempts a POST to the primary route, automatically falling back to an alternative route
+  /// if the primary route fails with an exception (e.g. CORS preflight 404 in Flutter Web) or 404/405.
+  Future<http.Response> _postWithFallback({
+    required String primaryPath,
+    required String fallbackPath,
+    required Map<String, dynamic> primaryBody,
+    required Map<String, dynamic> fallbackBody,
+    Map<String, String>? headers,
+  }) async {
+    final reqHeaders = {
+      'Content-Type': 'application/json',
+      ...?headers,
+    };
+
+    http.Response? response;
+    Object? lastError;
+
+    // Try primary path first
+    try {
+      final res = await _client.post(
+        Uri.parse('$_baseUrl$primaryPath'),
+        headers: reqHeaders,
+        body: jsonEncode(primaryBody),
+      );
+      if (res.statusCode != 404 && res.statusCode != 405) {
+        return res;
+      }
+      response = res;
+    } catch (e) {
+      lastError = e;
+      debugPrint('[RelayApiService] Primary endpoint $primaryPath failed ($e), falling back to $fallbackPath');
+    }
+
+    // Try fallback path
+    try {
+      final res = await _client.post(
+        Uri.parse('$_baseUrl$fallbackPath'),
+        headers: reqHeaders,
+        body: jsonEncode(fallbackBody),
+      );
+      return res;
+    } catch (e) {
+      if (response != null) return response;
+      throw lastError ?? e;
+    }
+  }
+
   /// Requests a 6-digit OTP sent via Nodemailer to the user's email
   Future<Map<String, dynamic>> sendRegistrationOtp({
     required String email,
@@ -158,31 +205,18 @@ class RelayApiService {
     String? name,
   }) async {
     try {
-      // 1. Try persistent Fastify core endpoint
-      var url = Uri.parse('$_baseUrl/api/v1/auth/request-otp');
-      var response = await _client.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'phone': phone.trim(),
-          'name': name,
-        }),
-      );
+      final body = {
+        'email': email.trim(),
+        'phone': phone.trim(),
+        'name': ?name,
+      };
 
-      // Fallback to legacy endpoint if 404
-      if (response.statusCode == 404) {
-        url = Uri.parse('$_baseUrl/api/auth/register-otp');
-        response = await _client.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email.trim(),
-            'phone': phone.trim(),
-            'name': name,
-          }),
-        );
-      }
+      final response = await _postWithFallback(
+        primaryPath: '/api/v1/auth/request-otp',
+        fallbackPath: '/api/auth/register-otp',
+        primaryBody: body,
+        fallbackBody: body,
+      );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 && (data['success'] == true || data['message'] != null)) {
@@ -206,15 +240,24 @@ class RelayApiService {
     int? lanPort,
   }) async {
     try {
-      // 1. Try persistent Fastify core endpoint
-      var url = Uri.parse('$_baseUrl/api/v1/auth/verify-otp');
-      var response = await _client.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'email': email.trim(),
-          'otp': otp.trim(),
-          'phone': phone?.trim(),
+      final primaryBody = {
+        'email': email.trim(),
+        'otp': otp.trim(),
+        'phone': phone?.trim(),
+        'deviceId': identity.deviceId,
+        'deviceName': identity.deviceName,
+        'platform': identity.platform,
+        'signingPublicKey': identity.signingPublicKeyBase64,
+        'exchangePublicKey': identity.exchangePublicKeyBase64,
+        'lanIp': lanIp,
+        'lanPort': lanPort,
+      };
+
+      final fallbackBody = {
+        'email': email.trim(),
+        'otp': otp.trim(),
+        'phone': phone?.trim(),
+        'device': {
           'deviceId': identity.deviceId,
           'deviceName': identity.deviceName,
           'platform': identity.platform,
@@ -222,31 +265,15 @@ class RelayApiService {
           'exchangePublicKey': identity.exchangePublicKeyBase64,
           'lanIp': lanIp,
           'lanPort': lanPort,
-        }),
-      );
+        },
+      };
 
-      // Fallback to legacy endpoint if 404
-      if (response.statusCode == 404) {
-        url = Uri.parse('$_baseUrl/api/auth/verify-otp');
-        response = await _client.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'email': email.trim(),
-            'otp': otp.trim(),
-            'phone': phone?.trim(),
-            'device': {
-              'deviceId': identity.deviceId,
-              'deviceName': identity.deviceName,
-              'platform': identity.platform,
-              'signingPublicKey': identity.signingPublicKeyBase64,
-              'exchangePublicKey': identity.exchangePublicKeyBase64,
-              'lanIp': lanIp,
-              'lanPort': lanPort,
-            },
-          }),
-        );
-      }
+      final response = await _postWithFallback(
+        primaryPath: '/api/v1/auth/verify-otp',
+        fallbackPath: '/api/auth/verify-otp',
+        primaryBody: primaryBody,
+        fallbackBody: fallbackBody,
+      );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 && data['success'] == true) {
@@ -294,13 +321,20 @@ class RelayApiService {
     int? lanPort,
   }) async {
     try {
-      // 1. Try persistent Fastify core endpoint
-      var url = Uri.parse('$_baseUrl/api/v1/devices/pair-request');
-      var response = await _client.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'connectionCode': connectionCode.trim(),
+      final primaryBody = {
+        'connectionCode': connectionCode.trim(),
+        'deviceId': identity.deviceId,
+        'deviceName': identity.deviceName,
+        'platform': identity.platform,
+        'signingPublicKey': identity.signingPublicKeyBase64,
+        'exchangePublicKey': identity.exchangePublicKeyBase64,
+        'lanIp': lanIp,
+        'lanPort': lanPort,
+      };
+
+      final fallbackBody = {
+        'connectionCode': connectionCode.trim(),
+        'device': {
           'deviceId': identity.deviceId,
           'deviceName': identity.deviceName,
           'platform': identity.platform,
@@ -308,29 +342,15 @@ class RelayApiService {
           'exchangePublicKey': identity.exchangePublicKeyBase64,
           'lanIp': lanIp,
           'lanPort': lanPort,
-        }),
-      );
+        },
+      };
 
-      // Fallback to legacy endpoint if 404
-      if (response.statusCode == 404) {
-        url = Uri.parse('$_baseUrl/api/auth/pair-device');
-        response = await _client.post(
-          url,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'connectionCode': connectionCode.trim(),
-            'device': {
-              'deviceId': identity.deviceId,
-              'deviceName': identity.deviceName,
-              'platform': identity.platform,
-              'signingPublicKey': identity.signingPublicKeyBase64,
-              'exchangePublicKey': identity.exchangePublicKeyBase64,
-              'lanIp': lanIp,
-              'lanPort': lanPort,
-            },
-          }),
-        );
-      }
+      final response = await _postWithFallback(
+        primaryPath: '/api/v1/devices/pair-request',
+        fallbackPath: '/api/auth/pair-device',
+        primaryBody: primaryBody,
+        fallbackBody: fallbackBody,
+      );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 && data['success'] == true) {
