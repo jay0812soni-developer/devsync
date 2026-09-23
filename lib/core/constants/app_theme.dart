@@ -26,6 +26,19 @@ class DevSyncColors {
   static const Color textPrimary = Color(0xFFF3EDE4);
   static const Color textSecondary = Color(0xFFB7AA9A);
   static const Color textMuted = Color(0xFF8A7E70);
+
+  // Modern Theme Compatibility
+  static const Color lightBackground = Color(0xFFF8FAFC);
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightSurfaceVariant = Color(0xFFF1F5F9);
+  static const Color lightCard = Color(0xFFFFFFFF);
+  static const Color lightBorder = Color(0xFFE2E8F0);
+  static const Color lightDivider = Color(0xFFEDF2F7);
+
+  static const Color lightBubbleSent = Color(0xFFEFF6FF);
+  static const Color lightBubbleReceived = Color(0xFFFFFFFF);
+  static const Color lightBubbleSentBorder = Color(0xFFBFDBFE);
+  static const Color lightBubbleReceivedBorder = Color(0xFFE2E8F0);
 }
 
 class DevSyncTheme {
@@ -35,6 +48,8 @@ class DevSyncTheme {
     color: DevSyncColors.textPrimary,
     fontFamily: 'Segoe UI',
   );
+
+  static ThemeData get lightTheme => darkTheme;
 
   static ThemeData get darkTheme {
     return ThemeData(

@@ -3,9 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/crypto/device_identity.dart';
 import '../../../core/network/lan_discovery_service.dart';
-import '../../../core/network/lan_http_server.dart';
 import '../../../core/network/relay_api_service.dart';
 import '../../../core/network/sse_relay_client.dart';
+import '../../../core/network/persistent_ws_client.dart';
+import '../../../core/network/webrtc_service.dart';
 import '../../../core/storage/database_service.dart';
 import '../domain/device_model.dart';
 
@@ -59,11 +60,8 @@ class MyDeviceNotifier extends StateNotifier<MyDeviceState> {
     String? localIp;
 
     if (!kIsWeb) {
-      final lanServer = LanHttpServer.instance;
-      port = await lanServer.start(identity);
-
       final discovery = LanDiscoveryService.instance;
-      await discovery.start(identity: identity, lanServerPort: port);
+      await discovery.start(identity: identity, lanServerPort: 0);
       localIp = discovery.localIp;
     } else {
       localIp = 'Web Client';
@@ -75,14 +73,22 @@ class MyDeviceNotifier extends StateNotifier<MyDeviceState> {
       lanPort: port,
     );
 
-    // Register with Vercel relay
+    // Initialize WebRTC Service
+    WebRtcService.instance.initialize(identity.deviceId);
+
+    // Connect Persistent WebSocket Gateway
+    PersistentWsClient.instance.connect(
+      deviceId: identity.deviceId,
+    );
+
+    // Register with relay
     await RelayApiService.instance.registerDevice(
       identity,
       lanIp: localIp,
       lanPort: port,
     );
 
-    // Start SSE stream
+    // Start SSE stream for legacy fallback
     SseRelayClient.instance.startListening(identity.deviceId);
 
     // Re-register heartbeat every 60s
@@ -125,14 +131,18 @@ final myDeviceProvider = StateNotifierProvider<MyDeviceNotifier, MyDeviceState>(
   return MyDeviceNotifier(DeviceIdentityManager());
 });
 
-// --- Peers Provider (Discovered & Paired Devices) ---
+// --- Peers Provider (Discovered & Paired Devices in Mesh) ---
 
 class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   StreamSubscription? _discoverySub;
+  StreamSubscription? _presenceSub;
+  StreamSubscription? _deviceJoinedSub;
 
   PeersNotifier() : super([]) {
     _loadStoredPeers();
     _listenToLanDiscovery();
+    _listenToMeshEvents();
+    refreshMeshPeers();
   }
 
   void _loadStoredPeers() {
@@ -145,6 +155,55 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
     });
   }
 
+  void _listenToMeshEvents() {
+    _presenceSub = PersistentWsClient.instance.presenceStream.listen((data) {
+      final devId = data['deviceId'] as String?;
+      final isOnline = data['isOnline'] as bool? ?? false;
+      if (devId != null) {
+        updatePeerPresence(devId, isOnline);
+      }
+    });
+
+    _deviceJoinedSub = PersistentWsClient.instance.deviceJoinedStream.listen((data) {
+      final devData = data['device'] as Map<String, dynamic>?;
+      if (devData != null) {
+        final peer = DeviceModel(
+          id: devData['deviceId'] as String,
+          name: devData['deviceName'] as String? ?? 'Mesh Peer',
+          platform: devData['platform'] as String? ?? 'unknown',
+          signingPublicKey: devData['signingPublicKey'] as String? ?? '',
+          exchangePublicKey: devData['exchangePublicKey'] as String? ?? '',
+          lanIp: devData['lanIp'] as String?,
+          lanPort: devData['lanPort'] as int?,
+          isOnline: true,
+          isLanAvailable: false,
+          lastSeen: DateTime.now(),
+        );
+        addOrUpdatePeer(peer);
+      }
+    });
+  }
+
+  Future<void> refreshMeshPeers() async {
+    final list = await RelayApiService.instance.fetchGroupMembers();
+    if (list.isNotEmpty) {
+      for (final p in list) {
+        addOrUpdatePeer(p);
+      }
+    }
+  }
+
+  void updatePeerPresence(String deviceId, bool isOnline) {
+    final idx = state.indexWhere((p) => p.id == deviceId);
+    if (idx >= 0) {
+      final updated = state[idx].copyWith(isOnline: isOnline);
+      final newList = List<DeviceModel>.from(state);
+      newList[idx] = updated;
+      state = newList;
+      DatabaseService.instance.savePeer(updated);
+    }
+  }
+
   void addOrUpdatePeer(DeviceModel peer) {
     final existingIndex = state.indexWhere((p) => p.id == peer.id);
     if (existingIndex >= 0) {
@@ -155,7 +214,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
         lanIp: peer.lanIp ?? current.lanIp,
         lanPort: peer.lanPort ?? current.lanPort,
         isLanAvailable: peer.isLanAvailable,
-        isOnline: true,
+        isOnline: peer.isOnline,
         lastSeen: DateTime.now(),
         signingPublicKey: peer.signingPublicKey.isNotEmpty ? peer.signingPublicKey : current.signingPublicKey,
         exchangePublicKey: peer.exchangePublicKey.isNotEmpty ? peer.exchangePublicKey : current.exchangePublicKey,
@@ -166,7 +225,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
       state = newList;
       DatabaseService.instance.savePeer(updated);
     } else {
-      // New device discovered
+      // New device discovered in mesh
       state = [...state, peer];
       DatabaseService.instance.savePeer(peer);
     }
@@ -191,6 +250,8 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   @override
   void dispose() {
     _discoverySub?.cancel();
+    _presenceSub?.cancel();
+    _deviceJoinedSub?.cancel();
     super.dispose();
   }
 }

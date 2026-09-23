@@ -253,5 +253,29 @@ class DatabaseService {
     }
     await _messagesBox.deleteAll(ids);
     await clearUnread(peerDeviceId);
+  // --- Session & Mesh Identity ---
+
+  String? getAuthToken() {
+    return _settingsBox.get('auth_token') as String?;
+  }
+
+  Future<void> setAuthToken(String token) async {
+    await _settingsBox.put('auth_token', token);
+  }
+
+  String? getGroupId() {
+    return _settingsBox.get('group_id') as String?;
+  }
+
+  Future<void> setGroupId(String groupId) async {
+    await _settingsBox.put('group_id', groupId);
+  }
+
+  String? getMyRole() {
+    return _settingsBox.get('device_role') as String?;
+  }
+
+  Future<void> setMyRole(String role) async {
+    await _settingsBox.put('device_role', role);
   }
 }

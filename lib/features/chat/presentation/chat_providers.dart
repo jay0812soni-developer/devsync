@@ -3,14 +3,14 @@ import 'dart:convert';
 import 'package:crypto/crypto.dart' as dart_crypto;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import '../../../core/crypto/device_identity.dart';
 import '../../../core/crypto/e2ee_cipher.dart';
-import '../../../core/network/lan_http_server.dart';
+import '../../../core/network/persistent_ws_client.dart';
 import '../../../core/network/relay_api_service.dart';
 import '../../../core/network/sse_relay_client.dart';
+import '../../../core/network/webrtc_service.dart';
 import '../../../core/storage/database_service.dart';
 import '../../../core/storage/file_categorizer.dart';
 import '../../../core/storage/io_file.dart';
@@ -23,18 +23,28 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
   final Ref _ref;
   final E2eeCipher _cipher = E2eeCipher();
   StreamSubscription? _sseSub;
+  StreamSubscription? _wsSub;
+  StreamSubscription? _webrtcSub;
 
   ChatNotifier(this._ref) : super([]) {
     _initMessageListeners();
   }
 
   void _initMessageListeners() {
-    // 1. Direct LAN message receiver
-    LanHttpServer.instance.onDirectMessageReceived = (data) {
-      _handleIncomingRawPayload(data, isFromLan: true);
-    };
+    // 1. Persistent WebSocket incoming message receiver
+    _wsSub = PersistentWsClient.instance.incomingMessageStream.listen((data) {
+      _handleIncomingRawPayload(data, isFromLan: false);
+    });
 
-    // 2. Vercel SSE message receiver
+    // 3. WebRTC direct DataChannel incoming message receiver
+    _webrtcSub = WebRtcService.instance.incomingDataStream.listen((event) {
+      final payload = event['payload'] as Map<String, dynamic>?;
+      if (payload != null) {
+        _handleIncomingRawPayload(payload, isFromLan: true);
+      }
+    });
+
+    // 4. Vercel SSE message receiver (legacy fallback)
     _sseSub = SseRelayClient.instance.onMessageReceived.listen((data) {
       _handleIncomingRawPayload(data, isFromLan: false);
     });
@@ -334,28 +344,18 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
     final sha256 = await LocalFileManager.instance.calculateChecksumOfPath(filePath);
     final category = FileCategorizer.categorize(fileName);
 
-    // Register on local HTTP server for LAN direct streaming
-    final downloadToken = LanHttpServer.instance.registerShareableFile(
-      filePath: filePath,
-      fileName: fileName,
-      fileSize: fileSize,
-    );
-
-    final myLanIp = myState.localIp ?? '127.0.0.1';
-    final downloadUrl = 'http://$myLanIp:${myState.lanPort}/files/download/$downloadToken';
-
     final fileMeta = FileAttachmentMetadata(
       fileName: fileName,
       fileSize: fileSize,
       localPath: filePath,
       fileCategory: category.folderName,
       sha256: sha256,
-      directDownloadUrl: downloadUrl,
+      directDownloadUrl: null,
       isDownloaded: true,
     );
 
     await _dispatchMessage(
-      content: downloadUrl,
+      content: '[File] $fileName (${(fileSize / (1024 * 1024)).toStringAsFixed(1)} MB)',
       type: MessageType.file,
       peer: currentPeer,
       myIdentity: myState.identity!,
@@ -485,31 +485,39 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
 
     bool delivered = false;
 
-    // 1. Try Direct LAN delivery if peer is on the same local network
-    if (peer.isLanAvailable && peer.lanIp != null && peer.lanPort != null) {
-      try {
-        final directUrl = Uri.parse('http://${peer.lanIp}:${peer.lanPort}/messages/direct');
-        final response = await http
-            .post(
-              directUrl,
-              headers: {'Content-Type': 'application/json'},
-              body: jsonEncode(packet),
-            )
-            .timeout(const Duration(seconds: 2));
-
-        if (response.statusCode == 200) {
-          delivered = true;
-          if (visible) {
-            await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.delivered);
-            _updateMessageStatusInState(messageId, MessageStatus.delivered);
-          }
+    // 1. Try direct WebRTC DataChannel first (P2P-first)
+    if (WebRtcService.instance.isPeerConnected(peer.id)) {
+      final ok = WebRtcService.instance.sendData(peer.id, packet);
+      if (ok) {
+        delivered = true;
+        if (visible) {
+          await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.delivered);
+          _updateMessageStatusInState(messageId, MessageStatus.delivered);
         }
-      } catch (_) {
-        // Fallback to Vercel relay
       }
     }
 
-    // 2. Fallback to Vercel relay if not delivered via LAN
+    // 2. Try persistent WebSocket delivery next
+    if (!delivered && PersistentWsClient.instance.status == WsConnectionStatus.authenticated) {
+      PersistentWsClient.instance.sendEncryptedPayload(
+        messageId: messageId,
+        recipientDeviceId: peer.id,
+        messageType: type.name,
+        cipherText: encrypted.cipherTextBase64,
+        nonce: encrypted.nonceBase64,
+        mac: encrypted.macBase64,
+        codeLanguage: codeLanguage,
+        fileName: fileName,
+        fileSize: fileSize,
+        sha256: sha256,
+      );
+      delivered = true;
+      await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.delivered);
+      _updateMessageStatusInState(messageId, MessageStatus.delivered);
+    }
+
+
+    // 4. Fallback to REST relay if still not delivered
     if (!delivered) {
       final queued = await RelayApiService.instance.sendEncryptedMessage(
         messageId: messageId,
@@ -543,6 +551,8 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
   @override
   void dispose() {
     _sseSub?.cancel();
+    _wsSub?.cancel();
+    _webrtcSub?.cancel();
     super.dispose();
   }
 }

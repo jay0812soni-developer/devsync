@@ -158,6 +158,20 @@ class _QrPairSheetState extends ConsumerState<QrPairSheet> with SingleTickerProv
                         icon: const Icon(Icons.copy, size: 16),
                         label: const Text('Copy Pairing Token'),
                       ),
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        onPressed: () async {
+                          final newCode = await RelayApiService.instance.generateSingleUsePairingCode();
+                          if (newCode != null && context.mounted) {
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('New single-use code generated: $newCode (valid for 5 mins)')),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Generate Fresh Single-Use Code'),
+                      ),
                     ],
                   ),
                 ),

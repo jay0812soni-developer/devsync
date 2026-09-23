@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:crypto/crypto.dart' as dart_crypto;
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/foundation.dart';
@@ -108,12 +109,13 @@ class DeviceIdentityManager {
       return _cachedIdentity!;
     }
 
-    // First time launch: Generate fresh sovereign identity
-    final signingSeed = List<int>.generate(32, (i) => (DateTime.now().microsecondsSinceEpoch + i * 31) % 256);
+    // First time launch: Generate fresh sovereign identity using hardware CSPRNG
+    final secureRandom = Random.secure();
+    final signingSeed = List<int>.generate(32, (_) => secureRandom.nextInt(256));
     final signingKeyPair = await _ed25519.newKeyPairFromSeed(signingSeed);
     final signingPubKey = await signingKeyPair.extractPublicKey();
 
-    final exchangeSeed = List<int>.generate(32, (i) => (DateTime.now().microsecondsSinceEpoch + i * 47) % 256);
+    final exchangeSeed = List<int>.generate(32, (_) => secureRandom.nextInt(256));
     final exchangeKeyPair = await _x25519.newKeyPairFromSeed(exchangeSeed);
     final exchangePubKey = await exchangeKeyPair.extractPublicKey();
 
