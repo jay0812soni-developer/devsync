@@ -240,10 +240,7 @@ class RelayApiService {
     int? lanPort,
   }) async {
     try {
-      final primaryBody = {
-        'email': email.trim(),
-        'otp': otp.trim(),
-        'phone': phone?.trim(),
+      final deviceMap = {
         'deviceId': identity.deviceId,
         'deviceName': identity.deviceName,
         'platform': identity.platform,
@@ -253,26 +250,19 @@ class RelayApiService {
         'lanPort': lanPort,
       };
 
-      final fallbackBody = {
+      final body = {
         'email': email.trim(),
         'otp': otp.trim(),
         'phone': phone?.trim(),
-        'device': {
-          'deviceId': identity.deviceId,
-          'deviceName': identity.deviceName,
-          'platform': identity.platform,
-          'signingPublicKey': identity.signingPublicKeyBase64,
-          'exchangePublicKey': identity.exchangePublicKeyBase64,
-          'lanIp': lanIp,
-          'lanPort': lanPort,
-        },
+        ...deviceMap,
+        'device': deviceMap,
       };
 
       final response = await _postWithFallback(
         primaryPath: '/api/v1/auth/verify-otp',
         fallbackPath: '/api/auth/verify-otp',
-        primaryBody: primaryBody,
-        fallbackBody: fallbackBody,
+        primaryBody: body,
+        fallbackBody: body,
       );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -321,8 +311,7 @@ class RelayApiService {
     int? lanPort,
   }) async {
     try {
-      final primaryBody = {
-        'connectionCode': connectionCode.trim(),
+      final deviceMap = {
         'deviceId': identity.deviceId,
         'deviceName': identity.deviceName,
         'platform': identity.platform,
@@ -332,24 +321,17 @@ class RelayApiService {
         'lanPort': lanPort,
       };
 
-      final fallbackBody = {
+      final body = {
         'connectionCode': connectionCode.trim(),
-        'device': {
-          'deviceId': identity.deviceId,
-          'deviceName': identity.deviceName,
-          'platform': identity.platform,
-          'signingPublicKey': identity.signingPublicKeyBase64,
-          'exchangePublicKey': identity.exchangePublicKeyBase64,
-          'lanIp': lanIp,
-          'lanPort': lanPort,
-        },
+        ...deviceMap,
+        'device': deviceMap,
       };
 
       final response = await _postWithFallback(
         primaryPath: '/api/v1/devices/pair-request',
         fallbackPath: '/api/auth/pair-device',
-        primaryBody: primaryBody,
-        fallbackBody: fallbackBody,
+        primaryBody: body,
+        fallbackBody: body,
       );
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
