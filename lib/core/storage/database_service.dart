@@ -188,10 +188,29 @@ class DatabaseService {
     await _settingsBox.put('is_authenticated', auth);
   }
 
-  String? readIdentityField(String key) => _settingsBox.get('identity_$key') as String?;
+  bool _isBoxReady() {
+    try {
+      _settingsBox;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  String? readIdentityField(String key) {
+    if (!_isBoxReady()) return null;
+    try {
+      return _settingsBox.get('identity_$key') as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> writeIdentityField(String key, String value) async {
-    await _settingsBox.put('identity_$key', value);
+    if (!_isBoxReady()) return;
+    try {
+      await _settingsBox.put('identity_$key', value);
+    } catch (_) {}
   }
 
   List<String> _idList(String key) {
@@ -253,29 +272,37 @@ class DatabaseService {
     }
     await _messagesBox.deleteAll(ids);
     await clearUnread(peerDeviceId);
+  }
+
   // --- Session & Mesh Identity ---
 
   String? getAuthToken() {
+    if (!_isBoxReady()) return null;
     return _settingsBox.get('auth_token') as String?;
   }
 
   Future<void> setAuthToken(String token) async {
+    if (!_isBoxReady()) return;
     await _settingsBox.put('auth_token', token);
   }
 
   String? getGroupId() {
+    if (!_isBoxReady()) return null;
     return _settingsBox.get('group_id') as String?;
   }
 
   Future<void> setGroupId(String groupId) async {
+    if (!_isBoxReady()) return;
     await _settingsBox.put('group_id', groupId);
   }
 
   String? getMyRole() {
+    if (!_isBoxReady()) return null;
     return _settingsBox.get('device_role') as String?;
   }
 
   Future<void> setMyRole(String role) async {
+    if (!_isBoxReady()) return;
     await _settingsBox.put('device_role', role);
   }
 }

@@ -64,11 +64,17 @@ class DeviceIdentityManager {
     } catch (e) {
       debugPrint('Secure storage read failed for $key: $e');
     }
-    return DatabaseService.instance.readIdentityField(key);
+    try {
+      return DatabaseService.instance.readIdentityField(key);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _write(String key, String value) async {
-    await DatabaseService.instance.writeIdentityField(key, value);
+    try {
+      await DatabaseService.instance.writeIdentityField(key, value);
+    } catch (_) {}
     try {
       await _storage.write(key: key, value: value);
     } catch (e) {

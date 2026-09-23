@@ -328,7 +328,7 @@ class FileTransferEngine {
 
       final category = FileCategorizer.categorize(checkpoint.fileName);
       final destDir = await LocalFileManager.instance.getCategoryDirectory(category);
-      final finalPath = await LocalFileManager.instance.resolveUniquePath(destDir.path, checkpoint.fileName);
+      final finalPath = await LocalFileManager.instance.resolveUniquePath(destDir, checkpoint.fileName);
 
       await partFile.rename(finalPath);
       if (await metaFile.exists()) {
