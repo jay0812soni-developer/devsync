@@ -618,4 +618,32 @@ class RelayApiService {
     }
     return null;
   }
+
+  /// Logs out the device. If isPrimary is true, cascades to all group devices.
+  Future<bool> logout({
+    required String deviceId,
+    String? connectionCode,
+    bool isPrimary = false,
+  }) async {
+    try {
+      final token = DatabaseService.instance.getAuthToken();
+      final code = connectionCode ?? DatabaseService.instance.getConnectionCode();
+      final url = Uri.parse('$_baseUrl/api/auth/logout');
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+      final body = jsonEncode({
+        'deviceId': deviceId,
+        if (code != null && code.isNotEmpty) 'connectionCode': code,
+        'isPrimary': isPrimary,
+      });
+
+      final response = await _client.post(url, headers: headers, body: body);
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('RelayApiService.logout error: $e');
+      return false;
+    }
+  }
 }

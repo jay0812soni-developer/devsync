@@ -188,6 +188,17 @@ class DatabaseService {
     await _settingsBox.put('is_authenticated', auth);
   }
 
+  Future<void> clearAuth() async {
+    if (!_isBoxReady()) return;
+    await _settingsBox.put('is_authenticated', false);
+    await _settingsBox.delete('auth_token');
+    await _settingsBox.delete('connection_code');
+    await _settingsBox.delete('device_role');
+    try {
+      await _peersBox.clear();
+    } catch (_) {}
+  }
+
   bool _isBoxReady() {
     try {
       _settingsBox;

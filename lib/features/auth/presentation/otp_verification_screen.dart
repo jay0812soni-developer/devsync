@@ -105,6 +105,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       await DatabaseService.instance.setUserPhone(widget.phone);
       await DatabaseService.instance.setConnectionCode(code);
       await DatabaseService.instance.setAuthenticated(true);
+      await DatabaseService.instance.setMyRole('PRIMARY');
       final token = result['token'] as String?;
       if (token != null && token.isNotEmpty) {
         await DatabaseService.instance.setAuthToken(token);

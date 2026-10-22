@@ -103,9 +103,15 @@ class DeviceIdentityManager {
       final exchangeKeyPair = await _x25519.newKeyPairFromSeed(exchangePrivBytes);
       final exchangePubKey = await exchangeKeyPair.extractPublicKey();
 
+      var name = existingName;
+      if (name == null || _isGenericName(name)) {
+        name = _generateCoolUsername();
+        await _write(_keyDeviceName, name);
+      }
+
       _cachedIdentity = DeviceIdentity(
         deviceId: existingDeviceId,
-        deviceName: existingName ?? _getDefaultDeviceName(),
+        deviceName: name,
         platform: _detectPlatform(),
         signingPublicKeyBase64: base64Encode(signingPubKey.bytes),
         exchangePublicKeyBase64: base64Encode(exchangePubKey.bytes),
@@ -128,7 +134,7 @@ class DeviceIdentityManager {
     // Deterministic Device ID: DEV-[First 8 hex chars of SHA-256 of signing public key]
     final hash = dart_crypto.sha256.convert(signingPubKey.bytes).toString();
     final deviceId = 'DEV-${hash.substring(0, 8).toUpperCase()}';
-    final deviceName = _getDefaultDeviceName();
+    final deviceName = _generateCoolUsername();
 
     await _write(_keyDeviceId, deviceId);
     await _write(_keyDeviceName, deviceName);
@@ -165,22 +171,41 @@ class DeviceIdentityManager {
     );
   }
 
-  String _getDefaultDeviceName() {
-    if (kIsWeb) return 'Browser';
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.windows:
-        return 'Windows';
-      case TargetPlatform.macOS:
-        return 'Mac';
-      case TargetPlatform.linux:
-        return 'Linux';
-      case TargetPlatform.android:
-        return 'Android';
-      case TargetPlatform.iOS:
-        return 'iPhone';
-      default:
-        return 'This device';
-    }
+  static bool _isGenericName(String name) {
+    final lower = name.trim().toLowerCase();
+    const generic = [
+      'browser',
+      'windows',
+      'mac',
+      'macos',
+      'linux',
+      'android',
+      'iphone',
+      'ios',
+      'this device',
+      'unknown device',
+      'devsync device',
+    ];
+    return generic.contains(lower);
+  }
+
+  static String _generateCoolUsername() {
+    const adjectives = [
+      'Quantum', 'Cyber', 'Hyper', 'Nova', 'Echo', 'Shadow', 'Pixel',
+      'Neon', 'Astro', 'Zenith', 'Matrix', 'Flux', 'Solar', 'Vortex',
+      'Binary', 'Cosmic', 'Zero', 'Titan', 'Apex', 'Pulse', 'Stellar',
+    ];
+    const nouns = [
+      'Falcon', 'Viper', 'Phantom', 'Wizard', 'Forge', 'Pulse', 'Ghost',
+      'Rider', 'Striker', 'Coder', 'Byte', 'Hex', 'Nexus', 'Runner',
+      'Spark', 'Architect', 'Knight', 'Nomad', 'Specter', 'Blade', 'Hawk',
+    ];
+
+    final rand = Random.secure();
+    final adj = adjectives[rand.nextInt(adjectives.length)];
+    final noun = nouns[rand.nextInt(nouns.length)];
+    final num = rand.nextInt(90) + 10;
+    return '$adj$noun-$num';
   }
 
   String _detectPlatform() {

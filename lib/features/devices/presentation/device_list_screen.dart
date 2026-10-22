@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_theme.dart';
 import '../../../core/network/relay_api_service.dart';
 import '../../../core/network/sse_relay_client.dart';
+import '../../../core/network/persistent_ws_client.dart';
 import '../../../core/storage/database_service.dart';
 import '../../../shared/utils/formatters.dart';
 import '../../chat/domain/message_model.dart';
@@ -41,10 +42,103 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
 
   void _subscribeToPairingEvents() {
     _sseSubscription = SseRelayClient.instance.onMessageReceived.listen((rawMsg) {
-      if (rawMsg['type'] == 'device_paired') {
+      final type = rawMsg['type'];
+      if (type == 'device_paired') {
         _handleDevicePairedEvent(rawMsg);
+      } else if (type == 'session_terminated') {
+        _handleSessionTerminated(rawMsg);
+      } else if (type == 'device_left') {
+        _handleDeviceLeft(rawMsg);
       }
     });
+  }
+
+  Future<void> _handleSessionTerminated(Map<String, dynamic> rawMsg) async {
+    if (!mounted) return;
+    await DatabaseService.instance.clearAuth();
+    SseRelayClient.instance.stop();
+    PersistentWsClient.instance.disconnect();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Primary device logged out. Personal mesh network closed.'),
+          duration: Duration(seconds: 4),
+          backgroundColor: DevSyncColors.warning,
+        ),
+      );
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthScreen()),
+        (route) => false,
+      );
+    }
+  }
+
+  void _handleDeviceLeft(Map<String, dynamic> rawMsg) {
+    try {
+      final cipherText = rawMsg['cipherText'] as String?;
+      if (cipherText != null) {
+        final decoded = utf8.decode(base64Decode(cipherText));
+        final data = jsonDecode(decoded) as Map<String, dynamic>;
+        final leftId = data['deviceId'] as String?;
+        if (leftId != null) {
+          ref.read(peersProvider.notifier).updatePeerPresence(leftId, false);
+          ref.read(peersProvider.notifier).refreshMeshPeers();
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _handleLogout() async {
+    final role = DatabaseService.instance.getMyRole();
+    final isPrimary = role == 'PRIMARY';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: DevSyncColors.surface,
+        title: const Text('Log Out'),
+        content: Text(
+          isPrimary
+              ? 'Are you sure you want to log out? As the primary source device, logging out will also disconnect and log out all other linked devices in your mesh network.'
+              : 'Are you sure you want to disconnect this device from your mesh network?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.error),
+            child: const Text('Log Out'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final myState = ref.read(myDeviceProvider);
+    final myId = myState.identity?.deviceId ?? DatabaseService.instance.getDeviceId() ?? '';
+
+    // Notify backend
+    await RelayApiService.instance.logout(
+      deviceId: myId,
+      isPrimary: isPrimary,
+    );
+
+    // Stop streams & purge local auth credentials
+    SseRelayClient.instance.stop();
+    PersistentWsClient.instance.disconnect();
+    await DatabaseService.instance.clearAuth();
+
+    if (mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AuthScreen()),
+        (route) => false,
+      );
+    }
   }
 
   void _handleDevicePairedEvent(Map<String, dynamic> rawMsg) {
@@ -177,6 +271,24 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
             const Text(
               'Local LAN Direct transfers do not use bandwidth from this server.',
               style: TextStyle(fontSize: 11, color: DevSyncColors.textMuted),
+            ),
+            const SizedBox(height: 20),
+            const Divider(color: DevSyncColors.border),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _handleLogout();
+                },
+                icon: const Icon(Icons.logout_rounded, size: 16, color: DevSyncColors.error),
+                label: const Text('Log Out of Personal Mesh', style: TextStyle(color: DevSyncColors.error, fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: DevSyncColors.error),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
             ),
           ],
         ),
@@ -367,6 +479,8 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
                   }
                 case 'settings':
                   _showSettingsDialog(context);
+                case 'logout':
+                  _handleLogout();
               }
             },
             itemBuilder: (context) => const [
@@ -374,6 +488,17 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
               PopupMenuItem(value: 'starred', child: Text('Starred messages')),
               PopupMenuItem(value: 'rename', child: Text('Rename this device')),
               PopupMenuItem(value: 'settings', child: Text('Settings')),
+              PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout_rounded, size: 18, color: DevSyncColors.error),
+                    SizedBox(width: 8),
+                    Text('Log out', style: TextStyle(color: DevSyncColors.error, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
             ],
           ),
         ],

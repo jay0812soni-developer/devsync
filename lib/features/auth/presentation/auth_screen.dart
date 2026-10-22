@@ -35,9 +35,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
   bool _isPairing = false;
   String? _loginError;
 
-  // Optional Alternate Login by Email
-  bool _showEmailLogin = false;
+  // Dedicated Email Login Controllers
   final _loginEmailController = TextEditingController();
+  bool _isSendingEmailLogin = false;
+  String? _emailLoginError;
 
   final List<String> _countryCodes = [
     '+91 (IN)',
@@ -55,7 +56,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -148,6 +149,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
       // Save credentials & connection status
       await DatabaseService.instance.setConnectionCode(cleanCode);
       await DatabaseService.instance.setAuthenticated(true);
+      await DatabaseService.instance.setMyRole('MEMBER');
       final token = result['token'] as String?;
       if (token != null && token.isNotEmpty) {
         await DatabaseService.instance.setAuthToken(token);
@@ -215,6 +217,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     } else if (result.peer != null) {
       // Direct LAN / P2P pairing completed
       await DatabaseService.instance.setAuthenticated(true);
+      await DatabaseService.instance.setMyRole('MEMBER');
       if (mounted) {
         await HurrayConnectionDialog.show(
           context,
@@ -225,19 +228,19 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     }
   }
 
-  // --- Email Login Fallback ---
+  // --- Dedicated Email Login Pipeline ---
   Future<void> _handleEmailLogin() async {
     final email = _loginEmailController.text.trim();
     if (email.isEmpty || !email.contains('@')) {
       setState(() {
-        _loginError = 'Please enter a valid registered email';
+        _emailLoginError = 'Please enter a valid registered email';
       });
       return;
     }
 
     setState(() {
-      _isPairing = true;
-      _loginError = null;
+      _isSendingEmailLogin = true;
+      _emailLoginError = null;
     });
 
     final result = await RelayApiService.instance.sendRegistrationOtp(
@@ -248,7 +251,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     if (!mounted) return;
 
     setState(() {
-      _isPairing = false;
+      _isSendingEmailLogin = false;
     });
 
     if (result['success'] == true) {
@@ -257,12 +260,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           builder: (_) => OtpVerificationScreen(
             email: email,
             phone: '',
+            initialCode: result['code'] as String?,
           ),
         ),
       );
     } else {
       setState(() {
-        _loginError = result['error'] ?? 'Failed to send OTP';
+        _emailLoginError = result['error'] ?? 'Failed to send OTP';
       });
     }
   }
@@ -317,7 +321,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
                       unselectedLabelColor: Colors.white,
                       labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
                       tabs: const [
-                        Tab(text: 'Login'),
+                        Tab(text: 'Email Login'),
+                        Tab(text: 'Pair with Code'),
                         Tab(text: 'Register'),
                       ],
                     ),
@@ -327,11 +332,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
 
                   // Tab Views
                   SizedBox(
-                    height: 400,
+                    height: 440,
                     child: TabBarView(
                       controller: _tabController,
                       children: [
-                        _buildLoginTab(),
+                        _buildEmailLoginTab(),
+                        _buildPairCodeTab(),
                         _buildRegisterTab(),
                       ],
                     ),
@@ -345,8 +351,71 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
     );
   }
 
-  // --- 1. Login Tab View (Enter 6-Digit Connection Code) ---
-  Widget _buildLoginTab() {
+  // --- 0. Dedicated Email Login Tab View ---
+  Widget _buildEmailLoginTab() {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Log in with Email',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Enter your registered email to receive an OTP and restore this device to your network.',
+            style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          TextField(
+            controller: _loginEmailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Registered Email',
+              hintText: 'developer@example.com',
+              prefixIcon: Icon(Icons.email_outlined, color: DevSyncColors.primary),
+            ),
+          ),
+          if (_emailLoginError != null) ...[
+            const SizedBox(height: 12),
+            Text(_emailLoginError!, style: const TextStyle(color: DevSyncColors.error, fontSize: 12)),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: _isSendingEmailLogin ? null : _handleEmailLogin,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DevSyncColors.primary,
+                foregroundColor: DevSyncColors.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              child: _isSendingEmailLogin
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: DevSyncColors.onPrimary, strokeWidth: 2.5),
+                    )
+                  : const Text('Send Login OTP', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(height: 16),
+          const Center(
+            child: Text(
+              'A 6-digit verification code will be sent to your registered inbox.',
+              style: TextStyle(fontSize: 11, color: DevSyncColors.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 1. Pair with Code Tab View (Scan QR or Enter 6-Digit Connection Code) ---
+  Widget _buildPairCodeTab() {
     final codeTheme = PinTheme(
       width: 48,
       height: 56,
@@ -363,177 +432,120 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
       ),
     );
 
-    if (_showEmailLogin) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Text(
-            'Restore Account with Email',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            'Enter your registered email to receive an OTP and restore this device.',
-            style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _loginEmailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Registered Email',
-              prefixIcon: Icon(Icons.email_outlined, color: DevSyncColors.primary),
+          // Helper Explanation Card
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: DevSyncColors.surface,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: DevSyncColors.border),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.qr_code_2_rounded, color: DevSyncColors.primary, size: 24),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Scan the pairing QR code from your registered device to pair instantly, or enter the 6-digit Connection Code.',
+                    style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary, height: 1.4),
+                  ),
+                ),
+              ],
             ),
           ),
+
+          const SizedBox(height: 18),
+
+          // Primary "Scan QR Code to Pair" Action Button
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _isPairing ? null : _handleScanQr,
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
+              label: const Text(
+                'Scan QR Code to Pair',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: DevSyncColors.primary,
+                foregroundColor: DevSyncColors.onPrimary,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // "OR ENTER 6-DIGIT CODE" Divider
+          Row(
+            children: [
+              Expanded(child: Divider(color: DevSyncColors.border)),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  'OR ENTER 6-DIGIT CODE',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: DevSyncColors.textMuted,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+              Expanded(child: Divider(color: DevSyncColors.border)),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Pinput 6-digit input for pairing
+          Pinput(
+            length: 6,
+            controller: _codeController,
+            defaultPinTheme: codeTheme,
+            focusedPinTheme: codeTheme.copyWith(
+              decoration: codeTheme.decoration!.copyWith(
+                border: Border.all(color: DevSyncColors.primary, width: 2),
+              ),
+            ),
+            onCompleted: (code) => _handlePairWithCode(code),
+          ),
+
           if (_loginError != null) ...[
             const SizedBox(height: 12),
             Text(_loginError!, style: const TextStyle(color: DevSyncColors.error, fontSize: 12)),
           ],
-          const SizedBox(height: 24),
+
+          const SizedBox(height: 18),
+
           SizedBox(
             width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _isPairing ? null : _handleEmailLogin,
-              style: ElevatedButton.styleFrom(backgroundColor: DevSyncColors.primary, foregroundColor: DevSyncColors.onPrimary),
-              child: _isPairing
-                  ? const CircularProgressIndicator(color: DevSyncColors.onPrimary, strokeWidth: 2.5)
-                  : const Text('Send Login OTP', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
-            child: TextButton(
-              onPressed: () => setState(() => _showEmailLogin = false),
-              child: const Text('← Back to 6-Digit Connection Code', style: TextStyle(color: DevSyncColors.secondary)),
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: _isPairing ? null : () => _handlePairWithCode(_codeController.text),
+              icon: _isPairing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(color: DevSyncColors.primary, strokeWidth: 2),
+                    )
+                  : const Icon(Icons.link_rounded, size: 18),
+              label: const Text('Pair Device with Code', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: DevSyncColors.primary,
+                side: const BorderSide(color: DevSyncColors.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             ),
           ),
         ],
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Helper Explanation Card
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: DevSyncColors.surface,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: DevSyncColors.border),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.qr_code_2_rounded, color: DevSyncColors.primary, size: 24),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Scan the pairing QR code from your registered device to pair instantly, or enter the 6-digit Connection Code.',
-                  style: TextStyle(fontSize: 12, color: DevSyncColors.textSecondary, height: 1.4),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
-        // Primary "Scan QR Code to Pair" Action Button
-        SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton.icon(
-            onPressed: _isPairing ? null : _handleScanQr,
-            icon: const Icon(Icons.qr_code_scanner_rounded, size: 22),
-            label: const Text(
-              'Scan QR Code to Pair',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: DevSyncColors.primary,
-              foregroundColor: DevSyncColors.onPrimary,
-              elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 18),
-
-        // "OR ENTER 6-DIGIT CODE" Divider
-        Row(
-          children: [
-            Expanded(child: Divider(color: DevSyncColors.border)),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10),
-              child: Text(
-                'OR ENTER 6-DIGIT CODE',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: DevSyncColors.textMuted,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                ),
-              ),
-            ),
-            Expanded(child: Divider(color: DevSyncColors.border)),
-          ],
-        ),
-
-        const SizedBox(height: 16),
-
-        // Pinput 6-digit input for pairing
-        Pinput(
-          length: 6,
-          controller: _codeController,
-          defaultPinTheme: codeTheme,
-          focusedPinTheme: codeTheme.copyWith(
-            decoration: codeTheme.decoration!.copyWith(
-              border: Border.all(color: DevSyncColors.primary, width: 2),
-            ),
-          ),
-          onCompleted: (code) => _handlePairWithCode(code),
-        ),
-
-        if (_loginError != null) ...[
-          const SizedBox(height: 12),
-          Text(_loginError!, style: const TextStyle(color: DevSyncColors.error, fontSize: 12)),
-        ],
-
-        const SizedBox(height: 18),
-
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: OutlinedButton.icon(
-            onPressed: _isPairing ? null : () => _handlePairWithCode(_codeController.text),
-            icon: _isPairing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(color: DevSyncColors.primary, strokeWidth: 2),
-                  )
-                : const Icon(Icons.link_rounded, size: 18),
-            label: const Text('Pair Device with Code', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: DevSyncColors.primary,
-              side: const BorderSide(color: DevSyncColors.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-          ),
-        ),
-
-        const Spacer(),
-
-        TextButton(
-          onPressed: () => setState(() => _showEmailLogin = true),
-          child: const Text(
-            'Already have an account? Login with Email',
-            style: TextStyle(fontSize: 12, color: DevSyncColors.secondary),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -541,7 +553,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
   Widget _buildRegisterTab() {
     return Form(
       key: _regFormKey,
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
@@ -669,6 +682,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
             ),
           ),
         ],
+      ),
       ),
     );
   }
