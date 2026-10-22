@@ -454,7 +454,18 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
 
     // Encrypt payload for peer
     if (peer.exchangePublicKey.isEmpty) {
-      debugPrint('Warning: Peer public key is missing');
+      final fetched = await RelayApiService.instance.fetchDevice(peer.id);
+      if (fetched != null && fetched.exchangePublicKey.isNotEmpty) {
+        peer = peer.copyWith(
+          exchangePublicKey: fetched.exchangePublicKey,
+          signingPublicKey: fetched.signingPublicKey.isNotEmpty ? fetched.signingPublicKey : peer.signingPublicKey,
+        );
+        _ref.read(peersProvider.notifier).addOrUpdatePeer(peer);
+      }
+    }
+
+    if (peer.exchangePublicKey.isEmpty) {
+      debugPrint('Warning: Peer exchange public key is missing and could not be retrieved');
       return;
     }
 
@@ -516,7 +527,6 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       _updateMessageStatusInState(messageId, MessageStatus.delivered);
     }
 
-
     // 4. Fallback to REST relay if still not delivered
     if (!delivered) {
       final queued = await RelayApiService.instance.sendEncryptedMessage(
@@ -535,6 +545,9 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       if (visible && queued) {
         await DatabaseService.instance.updateMessageStatus(messageId, MessageStatus.sent);
         _updateMessageStatusInState(messageId, MessageStatus.sent);
+      }
+      if (queued) {
+        SseRelayClient.instance.pollNow();
       }
     }
   }

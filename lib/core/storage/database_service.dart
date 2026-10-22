@@ -200,16 +200,37 @@ class DatabaseService {
   String? readIdentityField(String key) {
     if (!_isBoxReady()) return null;
     try {
-      return _settingsBox.get('identity_$key') as String?;
+      final direct = _settingsBox.get('identity_$key') as String?;
+      if (direct != null && direct.isNotEmpty) return direct;
+
+      // Handle 'devsync_' prefix variations gracefully
+      if (key.startsWith('devsync_')) {
+        final stripped = key.substring(8);
+        final val = _settingsBox.get('identity_$stripped') as String?;
+        if (val != null && val.isNotEmpty) return val;
+      } else {
+        final prefixed = _settingsBox.get('identity_devsync_$key') as String?;
+        if (prefixed != null && prefixed.isNotEmpty) return prefixed;
+      }
+      return null;
     } catch (_) {
       return null;
     }
+  }
+
+  String? getDeviceId() {
+    return readIdentityField('device_id');
   }
 
   Future<void> writeIdentityField(String key, String value) async {
     if (!_isBoxReady()) return;
     try {
       await _settingsBox.put('identity_$key', value);
+      if (key.startsWith('devsync_')) {
+        await _settingsBox.put('identity_${key.substring(8)}', value);
+      } else {
+        await _settingsBox.put('identity_devsync_$key', value);
+      }
     } catch (_) {}
   }
 

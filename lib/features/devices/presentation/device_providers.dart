@@ -152,7 +152,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   }
 
   void _loadStoredPeers() {
-    final myId = DatabaseService.instance.readIdentityField('device_id');
+    final myId = DatabaseService.instance.getDeviceId();
     final allPeers = DatabaseService.instance.getAllPeers();
     state = allPeers.where((p) => myId == null || p.id != myId).toList();
   }
@@ -176,7 +176,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
       final devData = data['device'] as Map<String, dynamic>?;
       if (devData != null) {
         final devId = devData['deviceId'] as String?;
-        final myId = DatabaseService.instance.readIdentityField('device_id');
+        final myId = DatabaseService.instance.getDeviceId();
         if (devId == null || (myId != null && devId == myId)) return;
 
         final peer = DeviceModel(
@@ -197,7 +197,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   }
 
   Future<void> refreshMeshPeers() async {
-    final myId = DatabaseService.instance.readIdentityField('device_id');
+    final myId = DatabaseService.instance.getDeviceId();
     final list = await RelayApiService.instance.fetchGroupMembers();
     if (list.isNotEmpty) {
       for (final p in list) {
@@ -220,7 +220,7 @@ class PeersNotifier extends StateNotifier<List<DeviceModel>> {
   }
 
   void addOrUpdatePeer(DeviceModel peer) {
-    final myId = DatabaseService.instance.readIdentityField('device_id');
+    final myId = DatabaseService.instance.getDeviceId();
     if (myId != null && peer.id == myId) {
       return; // Never display local device in remote peer list
     }

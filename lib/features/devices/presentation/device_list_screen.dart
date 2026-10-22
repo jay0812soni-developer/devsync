@@ -56,7 +56,7 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
         final pd = data['pairedDevice'] as Map<String, dynamic>?;
         if (pd != null) {
           final peerId = pd['deviceId'] as String?;
-          final myId = DatabaseService.instance.readIdentityField('device_id');
+          final myId = DatabaseService.instance.getDeviceId();
           if (peerId == null || (myId != null && peerId == myId)) {
             return;
           }

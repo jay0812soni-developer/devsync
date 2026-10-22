@@ -438,7 +438,7 @@ class RelayApiService {
   Future<List<DeviceModel>> fetchGroupMembers() async {
     final token = DatabaseService.instance.getAuthToken();
     final code = DatabaseService.instance.getConnectionCode();
-    final myDevId = DatabaseService.instance.readIdentityField('device_id');
+    final myDevId = DatabaseService.instance.getDeviceId();
 
     if ((token == null || token.isEmpty) &&
         (code == null || code.isEmpty) &&
@@ -477,16 +477,23 @@ class RelayApiService {
             if (devId == null || (myDevId != null && devId == myDevId)) {
               continue; // Do not include local device as remote peer
             }
+            final existing = DatabaseService.instance.getPeer(devId);
             final model = DeviceModel(
               id: devId,
-              name: m['deviceName'] as String? ?? 'Dev Device',
-              platform: m['platform'] as String? ?? 'unknown',
-              signingPublicKey: m['signingPublicKey'] as String? ?? '',
-              exchangePublicKey: m['exchangePublicKey'] as String? ?? '',
-              lanIp: m['lanIp'] as String?,
-              lanPort: m['lanPort'] as int?,
-              isOnline: m['isOnline'] == true,
-              isLanAvailable: false,
+              name: (m['deviceName'] as String?)?.isNotEmpty == true
+                  ? m['deviceName'] as String
+                  : (existing?.name ?? 'Dev Device'),
+              platform: m['platform'] as String? ?? (existing?.platform ?? 'unknown'),
+              signingPublicKey: (m['signingPublicKey'] as String?)?.isNotEmpty == true
+                  ? m['signingPublicKey'] as String
+                  : (existing?.signingPublicKey ?? ''),
+              exchangePublicKey: (m['exchangePublicKey'] as String?)?.isNotEmpty == true
+                  ? m['exchangePublicKey'] as String
+                  : (existing?.exchangePublicKey ?? ''),
+              lanIp: m['lanIp'] as String? ?? existing?.lanIp,
+              lanPort: m['lanPort'] as int? ?? existing?.lanPort,
+              isOnline: m['isOnline'] == true || m['isOnline'] == null,
+              isLanAvailable: existing?.isLanAvailable ?? false,
               lastSeen: DateTime.fromMillisecondsSinceEpoch(
                 m['lastSeenAt'] as int? ?? DateTime.now().millisecondsSinceEpoch,
               ),

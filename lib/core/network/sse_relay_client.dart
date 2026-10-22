@@ -32,9 +32,9 @@ class SseRelayClient {
     _shouldRun = true;
     _connectSse();
 
-    // Secondary polling backup every 10 seconds to catch offline delivered messages
+    // Real-time polling backup every 3 seconds to catch waiting messages promptly
     _pollingFallbackTimer?.cancel();
-    _pollingFallbackTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _pollingFallbackTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       _pollMessages();
     });
   }
@@ -97,6 +97,11 @@ class SseRelayClient {
     } catch (_) {
       _handleDisconnect();
     }
+  }
+
+  /// Triggers an immediate fetch for waiting messages
+  void pollNow() {
+    _pollMessages();
   }
 
   /// Periodic polling backup
