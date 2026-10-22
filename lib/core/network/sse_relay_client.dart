@@ -45,10 +45,14 @@ class SseRelayClient {
     _client?.close();
     _client = http.Client();
 
+    final token = DatabaseService.instance.getAuthToken();
     final url = Uri.parse('$_baseUrl/api/events?deviceId=$_deviceId');
     final request = http.Request('GET', url)
       ..headers['Accept'] = 'text/event-stream'
       ..headers['Cache-Control'] = 'no-cache';
+    if (token != null && token.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
 
     try {
       final response = await _client!.send(request);
@@ -100,8 +104,12 @@ class SseRelayClient {
     if (_deviceId == null || _baseUrl.isEmpty) return;
 
     try {
+      final token = DatabaseService.instance.getAuthToken();
       final url = Uri.parse('$_baseUrl/api/events?deviceId=$_deviceId');
-      final response = await http.get(url);
+      final headers = <String, String>{
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+      final response = await http.get(url, headers: headers);
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;

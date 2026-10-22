@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pinput/pinput.dart';
 import '../../../core/network/relay_api_service.dart';
+import '../../../core/network/sse_relay_client.dart';
 import '../../../core/constants/app_theme.dart';
 import '../../../core/crypto/device_identity.dart';
 import '../../../core/storage/database_service.dart';
@@ -96,6 +97,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
           builder: (_) => OtpVerificationScreen(
             email: email,
             phone: fullPhone,
+            initialCode: result['code'] as String?,
           ),
         ),
       );
@@ -146,6 +148,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with SingleTickerProvid
       // Save credentials & connection status
       await DatabaseService.instance.setConnectionCode(cleanCode);
       await DatabaseService.instance.setAuthenticated(true);
+      final token = result['token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        await DatabaseService.instance.setAuthToken(token);
+        SseRelayClient.instance.startListening(identity.deviceId);
+      }
       if (user != null && user['email'] != null) {
         await DatabaseService.instance.setUserEmail(user['email']);
       }

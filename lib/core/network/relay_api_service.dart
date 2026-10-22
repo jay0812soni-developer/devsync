@@ -82,9 +82,15 @@ class RelayApiService {
         'timestamp': DateTime.now().millisecondsSinceEpoch,
       };
 
+      final token = DatabaseService.instance.getAuthToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
+
       final response = await _client.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(payload),
       );
 
@@ -103,9 +109,14 @@ class RelayApiService {
   }) async {
     try {
       final url = Uri.parse('$_baseUrl/api/messages/ack');
+      final token = DatabaseService.instance.getAuthToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      };
       final response = await _client.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode({
           'messageId': messageId,
           'recipientDeviceId': recipientDeviceId,
@@ -220,7 +231,7 @@ class RelayApiService {
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       if (response.statusCode == 200 && (data['success'] == true || data['message'] != null)) {
-        return {'success': true, 'message': data['message'] ?? 'OTP sent'};
+        return {'success': true, 'message': data['message'] ?? 'OTP sent', 'code': data['code']};
       } else {
         return {'success': false, 'error': data['error'] ?? 'Failed to send OTP'};
       }
@@ -412,6 +423,7 @@ class RelayApiService {
           'user': data['user'],
           'pairedDevice': pairedDevice,
           'peers': peersList,
+          'token': token,
         };
       } else {
         return {'success': false, 'error': data['error'] ?? 'Pairing failed'};

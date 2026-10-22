@@ -391,6 +391,11 @@ class _DeviceListScreenState extends ConsumerState<DeviceListScreen> {
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           children: [
+            if (!_showArchived)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                child: _buildConnectionsCard(context, myState.identity?.deviceId ?? ''),
+              ),
             if (!_showArchived && archived.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.archive_outlined, color: DevSyncColors.textSecondary),

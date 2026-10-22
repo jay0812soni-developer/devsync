@@ -5,6 +5,7 @@ import 'package:pinput/pinput.dart';
 import '../../../core/constants/app_theme.dart';
 import '../../../core/crypto/device_identity.dart';
 import '../../../core/network/relay_api_service.dart';
+import '../../../core/network/sse_relay_client.dart';
 import '../../../core/storage/database_service.dart';
 import '../../devices/presentation/device_providers.dart';
 import 'hurray_connection_dialog.dart';
@@ -12,11 +13,13 @@ import 'hurray_connection_dialog.dart';
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String email;
   final String phone;
+  final String? initialCode;
 
   const OtpVerificationScreen({
     super.key,
     required this.email,
     required this.phone,
+    this.initialCode,
   });
 
   @override
@@ -38,6 +41,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialCode != null && widget.initialCode!.length == 6) {
+      _pinController.text = widget.initialCode!;
+    }
     _startCooldownTimer();
   }
 
@@ -99,6 +105,11 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       await DatabaseService.instance.setUserPhone(widget.phone);
       await DatabaseService.instance.setConnectionCode(code);
       await DatabaseService.instance.setAuthenticated(true);
+      final token = result['token'] as String?;
+      if (token != null && token.isNotEmpty) {
+        await DatabaseService.instance.setAuthToken(token);
+        SseRelayClient.instance.startListening(identity.deviceId);
+      }
 
       // Refresh mesh peers for primary device
       await ref.read(peersProvider.notifier).refreshMeshPeers();
