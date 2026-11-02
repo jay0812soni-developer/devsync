@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../storage/database_service.dart';
+import 'relay_api_service.dart';
 
 typedef OnRelayMessageCallback = void Function(Map<String, dynamic> rawMessage);
 
@@ -20,7 +21,20 @@ class SseRelayClient {
   final _messageController = StreamController<Map<String, dynamic>>.broadcast();
   Stream<Map<String, dynamic>> get onMessageReceived => _messageController.stream;
 
+  // shortcut: in-memory dedupe, reset at 1000 ids; fine while acks land within seconds.
+  final Set<String> _seenIds = {};
+
   SseRelayClient._();
+
+  /// Server keeps messages until acked, so SSE + polling can see one twice: emit once, ack once.
+  void _emit(Map<String, dynamic> msg) {
+    final id = msg['id'] as String?;
+    if (id == null || _deviceId == null) return;
+    if (_seenIds.length > 1000) _seenIds.clear();
+    if (!_seenIds.add(id)) return;
+    _messageController.add(msg);
+    RelayApiService.instance.acknowledgeMessage(messageId: id, recipientDeviceId: _deviceId!);
+  }
 
   bool get isConnected => _isConnected;
 
@@ -74,7 +88,7 @@ class SseRelayClient {
               if (currentEvent == 'message' && dataStr.isNotEmpty) {
                 try {
                   final json = jsonDecode(dataStr) as Map<String, dynamic>;
-                  _messageController.add(json);
+                  _emit(json);
                 } catch (e) {
                   debugPrint('Error decoding SSE message data: $e');
                 }
@@ -122,7 +136,7 @@ class SseRelayClient {
         if (messages != null) {
           for (final raw in messages) {
             if (raw is Map<String, dynamic>) {
-              _messageController.add(raw);
+              _emit(raw);
             }
           }
         }

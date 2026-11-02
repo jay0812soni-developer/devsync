@@ -177,15 +177,6 @@ class ChatNotifier extends StateNotifier<List<MessageModel>> {
       // Save to database
       await DatabaseService.instance.saveMessage(incomingMessage);
 
-      // Acknowledge delivery to purge from Vercel queue
-      if (!isFromLan) {
-        await RelayApiService.instance.acknowledgeMessage(
-          messageId: messageId,
-          recipientDeviceId: recipientId,
-          status: 'delivered',
-        );
-      }
-
       final currentPeer = _ref.read(selectedPeerProvider);
       final chatIsOpen = currentPeer?.id == senderId;
       if (chatIsOpen) {
